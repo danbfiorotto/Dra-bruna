@@ -126,6 +126,46 @@ npm run tauri:build  # Build para produção
 - **Desenvolvimento**: Build local
 - **Produção**: Release via GitHub Actions
 
+## 🔐 Secrets e Variáveis de Ambiente
+
+### GitHub Secrets (CI/CD)
+
+#### Site Pipeline
+- `VERCEL_TOKEN`: Token do Vercel para deploy
+- `VERCEL_PROJECT_ID`: ID do projeto no Vercel
+- `VERCEL_ORG_ID`: ID da organização no Vercel
+
+#### App Pipeline
+- `TAURI_PRIVATE_KEY`: Chave privada para assinatura do app
+- `TAURI_KEY_PASSWORD`: Senha da chave privada
+- `SUPABASE_URL`: URL do projeto Supabase
+- `SUPABASE_ANON_KEY`: Chave anônima do Supabase
+
+### Variáveis de Ambiente Locais
+
+#### Site (.env.local)
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+#### App (.env)
+```bash
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_APP_VERSION=1.0.0
+```
+
+### Configuração de Desenvolvimento
+
+1. **Clone o repositório**
+2. **Configure as variáveis de ambiente** (copie `env.example` para `.env`)
+3. **Instale as dependências**: `npm install`
+4. **Build dos design tokens**: `npm run build --workspace=design-tokens`
+5. **Execute o projeto desejado**:
+   - Site: `npm run dev:site`
+   - App: `npm run dev:app`
+
 ## 📊 CI/CD
 
 ### Pipeline de CI
@@ -149,6 +189,13 @@ npm run tauri:build  # Build para produção
 - [ADR-0003: Database Architecture](docs/adr/0003-database-architecture.md)
 - [ADR-0004: Security and Encryption](docs/adr/0004-security-encryption.md)
 - [ADR-0005: CI/CD Strategy](docs/adr/0005-ci-cd-strategy.md)
+- [ADR-0006: Site SSG + App Tauri Architecture](docs/adr/0006-site-ssg-architecture.md)
+- [ADR-0007: Persistência SQLite + SQLCipher + Sync Supabase](docs/adr/0007-persistence-sqlite-supabase.md)
+- [ADR-0008: Autenticação Supabase Auth + DPAPI](docs/adr/0008-authentication-supabase-dpapi.md)
+- [ADR-0009: Criptografia DB + AES-GCM para Documentos](docs/adr/0009-encryption-db-aes-gcm.md)
+- [ADR-0010: Relatórios HTML→PDF + CSV](docs/adr/0010-reports-html-pdf-csv.md)
+- [ADR-0011: Backup/Restore Diário, Checksum, Retenção](docs/adr/0011-backup-restore-strategy.md)
+- [ADR-0012: Design System (Tokens, Fontes, Ícones)](docs/adr/0012-design-system-tokens.md)
 
 ### Documentação Técnica
 - [Descrição dos Sistemas](Descricao%20dos%20Sistemas.md)

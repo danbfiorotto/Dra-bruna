@@ -1,3 +1,5 @@
+const { designTokens } = require('@bruna/design-tokens');
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ['class'],
@@ -17,64 +19,23 @@ module.exports = {
     },
     extend: {
       colors: {
-        // Paleta Dra. Bruna
-        primary: {
-          DEFAULT: '#3A7CA5',
-          foreground: '#ffffff',
-        },
-        secondary: {
-          DEFAULT: '#F5F6F8',
-          foreground: '#1F2937',
-        },
-        accent: {
-          DEFAULT: '#2D9C8F',
-          foreground: '#ffffff',
-        },
-        destructive: {
-          DEFAULT: '#DC2626',
-          foreground: '#ffffff',
-        },
-        success: {
-          DEFAULT: '#16A34A',
-          foreground: '#ffffff',
-        },
-        warning: {
-          DEFAULT: '#F59E0B',
-          foreground: '#1F2937',
-        },
-        border: '#D1D5DB',
-        input: '#D1D5DB',
-        ring: '#3A7CA5',
-        background: '#ffffff',
-        foreground: '#1F2937',
-        muted: {
-          DEFAULT: '#F5F6F8',
-          foreground: '#6B7280',
-        },
-        popover: {
-          DEFAULT: '#ffffff',
-          foreground: '#1F2937',
-        },
-        card: {
-          DEFAULT: '#ffffff',
-          foreground: '#1F2937',
-        },
+        ...designTokens.colors,
+        // Custom brand colors
+        gold: 'hsl(var(--gold))',
+        black: 'hsl(var(--black))',
+        'light-gray': 'hsl(var(--light-gray))',
+        'soft-pink': 'hsl(var(--soft-pink))',
       },
-      borderRadius: {
-        lg: '12px',
-        md: '8px',
-        sm: '6px',
-      },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        heading: ['Poppins', 'system-ui', 'sans-serif'],
-      },
-      fontSize: {
-        'h1': ['32px', { lineHeight: '1.2', fontWeight: '700' }],
-        'h2': ['24px', { lineHeight: '1.3', fontWeight: '600' }],
-        'h3': ['20px', { lineHeight: '1.4', fontWeight: '500' }],
-        'body': ['16px', { lineHeight: '1.6', fontWeight: '400' }],
-        'small': ['14px', { lineHeight: '1.5', fontWeight: '400' }],
+      spacing: designTokens.spacing,
+      borderRadius: designTokens.borderRadius,
+      fontFamily: designTokens.typography.fontFamily,
+      fontSize: designTokens.typography.fontSize,
+      fontWeight: designTokens.typography.fontWeight,
+      lineHeight: designTokens.typography.lineHeight,
+      boxShadow: designTokens.boxShadow,
+      animation: {
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
       },
       keyframes: {
         'accordion-down': {
@@ -85,10 +46,6 @@ module.exports = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: 0 },
         },
-      },
-      animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
       },
     },
   },

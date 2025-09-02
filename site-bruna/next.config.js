@@ -14,6 +14,10 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
   },
+  // SEO optimizations
+  compress: true,
+  poweredByHeader: false,
+  generateEtags: false,
 };
 
 module.exports = nextConfig;

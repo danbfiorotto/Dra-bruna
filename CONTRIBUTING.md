@@ -1,315 +1,270 @@
-# Guia de Contribuição - Sistema Dra. Bruna
+# Contribuindo para o Sistema Dra. Bruna
 
-Obrigado por considerar contribuir com o Sistema Dra. Bruna! Este documento fornece diretrizes e informações para contribuidores.
+Obrigado por considerar contribuir para o Sistema Dra. Bruna! Este documento fornece diretrizes para contribuições.
 
-## 📋 Índice
+## Código de Conduta
 
-- [Código de Conduta](#código-de-conduta)
-- [Como Contribuir](#como-contribuir)
-- [Configuração do Ambiente](#configuração-do-ambiente)
-- [Convenções de Código](#convenções-de-código)
-- [Processo de Pull Request](#processo-de-pull-request)
-- [Reportando Bugs](#reportando-bugs)
-- [Sugerindo Melhorias](#sugerindo-melhorias)
+Este projeto segue um código de conduta profissional. Ao participar, você concorda em manter um ambiente respeitoso e inclusivo.
 
-## 🤝 Código de Conduta
+## Como Contribuir
 
-Este projeto segue um código de conduta para garantir um ambiente acolhedor e respeitoso para todos os contribuidores.
+### 1. Configuração do Ambiente
 
-### Nossos Compromissos
-- Ser respeitoso e inclusivo
-- Aceitar críticas construtivas
-- Focar no que é melhor para a comunidade
-- Mostrar empatia com outros membros
-
-### Comportamentos Inaceitáveis
-- Linguagem ou imagens sexualizadas
-- Trolling, comentários insultuosos ou ataques pessoais
-- Assédio público ou privado
-- Publicar informações privadas sem permissão
-
-## 🚀 Como Contribuir
-
-### Tipos de Contribuição
-- 🐛 **Bug fixes**: Correção de problemas
-- ✨ **Features**: Novas funcionalidades
-- 📚 **Documentação**: Melhorias na documentação
-- 🧪 **Testes**: Adição de testes
-- 🎨 **UI/UX**: Melhorias na interface
-- 🔧 **Refatoração**: Melhoria do código
-
-### Processo de Contribuição
-1. **Fork** o repositório
-2. **Clone** seu fork localmente
-3. **Crie** uma branch para sua feature
-4. **Faça** suas alterações
-5. **Teste** suas alterações
-6. **Commit** com mensagem descritiva
-7. **Push** para seu fork
-8. **Abra** um Pull Request
-
-## 🛠️ Configuração do Ambiente
-
-### Pré-requisitos
-```bash
-# Node.js 18+
-node --version
-
-# Rust 1.75+
-rustc --version
-
-# npm 9+
-npm --version
-```
-
-### Setup Inicial
 ```bash
 # Clone o repositório
 git clone https://github.com/dra-bruna/sistema-dra-bruna.git
 cd sistema-dra-bruna
 
-# Instale dependências
+# Instale as dependências
 npm install
 
-# Verifique se tudo está funcionando
-npm run lint
-npm run build:site
-npm run build:app
+# Build dos design tokens
+npm run build --workspace=design-tokens
 ```
 
-### Desenvolvimento
-```bash
-# Site (Next.js)
-npm run dev:site
+### 2. Convenções de Commit
 
-# App (Tauri)
-npm run dev:app
+Seguimos [Conventional Commits](https://www.conventionalcommits.org/):
 
-# Ambos em paralelo
-npm run dev:site & npm run dev:app
 ```
-
-## 📝 Convenções de Código
-
-### Commits
-Seguimos [Conventional Commits](https://conventionalcommits.org/):
-
-```bash
-# Formato
 <type>[optional scope]: <description>
 
-# Exemplos
-feat: adiciona autenticação de usuário
-fix: corrige bug na validação de email
-docs: atualiza README com novas instruções
-style: formata código com Prettier
-refactor: reorganiza estrutura de componentes
-test: adiciona testes para módulo de pacientes
-chore: atualiza dependências
+[optional body]
+
+[optional footer(s)]
 ```
 
-### Branches
+#### Tipos de Commit
+
+- `feat`: Nova funcionalidade
+- `fix`: Correção de bug
+- `docs`: Documentação
+- `style`: Formatação, sem mudança de código
+- `refactor`: Refatoração de código
+- `test`: Adição ou correção de testes
+- `chore`: Tarefas de manutenção
+
+#### Exemplos
+
 ```bash
-# Nomenclatura
-feature/nome-da-funcionalidade
-hotfix/correcao-urgente
-bugfix/descricao-do-bug
-docs/atualizacao-documentacao
-
-# Exemplos
-feature/agenda-calendario
-hotfix/corrige-crash-login
-bugfix/validação-cpf
-docs/adiciona-exemplos-api
+feat(auth): adicionar autenticação com Google
+fix(ui): corrigir contraste de cores em modo escuro
+docs(api): atualizar documentação da API de pacientes
+style: formatar código com prettier
+refactor(db): otimizar queries do banco de dados
+test(auth): adicionar testes para login
+chore(deps): atualizar dependências
 ```
 
-### TypeScript
-- Use tipos explícitos
-- Evite `any`
-- Prefira interfaces para objetos
-- Use enums para constantes
+### 3. Política de Branches
 
-```typescript
-// ✅ Bom
-interface Patient {
-  id: string;
-  name: string;
-  email?: string;
-}
+#### Estrutura de Branches
 
-// ❌ Evitar
-const patient: any = { ... };
+- `main`: Branch principal, sempre estável
+- `develop`: Branch de desenvolvimento
+- `feature/*`: Novas funcionalidades
+- `fix/*`: Correções de bugs
+- `hotfix/*`: Correções urgentes para produção
+
+#### Nomenclatura
+
+```bash
+feature/auth-google-signin
+fix/patient-form-validation
+hotfix/security-patch
+docs/api-documentation
 ```
 
-### React
-- Use functional components
-- Prefira hooks customizados
-- Use TypeScript para props
-- Evite prop drilling
+### 4. Processo de Pull Request
 
-```typescript
-// ✅ Bom
-interface PatientCardProps {
-  patient: Patient;
-  onEdit: (id: string) => void;
-}
+#### Antes de Criar um PR
 
-export function PatientCard({ patient, onEdit }: PatientCardProps) {
-  return (
-    <div>
-      <h3>{patient.name}</h3>
-      <button onClick={() => onEdit(patient.id)}>Editar</button>
-    </div>
-  );
-}
-```
+1. **Sincronize com a branch base**:
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git checkout feature/sua-feature
+   git rebase develop
+   ```
 
-### Rust
-- Use `cargo clippy` para linting
-- Use `cargo fmt` para formatação
-- Documente funções públicas
-- Use `Result` para error handling
+2. **Execute os testes**:
+   ```bash
+   npm run lint
+   npm run type-check
+   npm run test
+   ```
 
-```rust
-// ✅ Bom
-/// Cria um novo paciente no banco de dados
-pub async fn create_patient(
-    pool: &SqlitePool,
-    patient: CreatePatientRequest,
-) -> Result<Patient, AppError> {
-    // implementação
-}
-```
+3. **Build local**:
+   ```bash
+   npm run build:site
+   npm run build:app
+   ```
 
-## 🔄 Processo de Pull Request
+#### Template de Pull Request
 
-### Antes de Abrir um PR
-- [ ] Código segue as convenções
-- [ ] Lint passa sem erros
-- [ ] Type check passa
-- [ ] Build funciona
-- [ ] Testes passam (quando aplicável)
-- [ ] Documentação atualizada
-
-### Template de PR
 ```markdown
 ## Descrição
-Breve descrição das alterações.
+Breve descrição das mudanças.
 
 ## Tipo de Mudança
 - [ ] Bug fix
-- [ ] Nova feature
+- [ ] Nova funcionalidade
 - [ ] Breaking change
 - [ ] Documentação
 
 ## Checklist
-- [ ] Código testado
-- [ ] Documentação atualizada
-- [ ] Lint sem erros
-- [ ] Build funcionando
+- [ ] Código segue as convenções do projeto
+- [ ] Testes foram adicionados/atualizados
+- [ ] Documentação foi atualizada
+- [ ] Build passa sem warnings
+- [ ] Lint passa sem erros
 
 ## Screenshots (se aplicável)
-Adicione screenshots para mudanças de UI.
+Adicione screenshots para mudanças visuais.
 
 ## Issues Relacionadas
 Closes #123
 ```
 
-### Review Process
-1. **Automático**: CI/CD pipeline
-2. **Manual**: Review de código
-3. **Aprovação**: Pelo menos 1 reviewer
-4. **Merge**: Após aprovação
+### 5. Checklist de Release
 
-## 🐛 Reportando Bugs
+#### Antes de Fazer Release
 
-### Template de Bug Report
-```markdown
-## Descrição
-Descrição clara do bug.
+- [ ] Todos os testes passam
+- [ ] Build sem warnings
+- [ ] Documentação atualizada
+- [ ] CHANGELOG.md atualizado
+- [ ] Version bump nos package.json
+- [ ] ADRs atualizados se necessário
 
-## Passos para Reproduzir
-1. Vá para '...'
-2. Clique em '...'
-3. Veja o erro
+#### Processo de Release
 
-## Comportamento Esperado
-O que deveria acontecer.
+1. **Criar branch de release**:
+   ```bash
+   git checkout develop
+   git checkout -b release/v1.2.0
+   ```
 
-## Screenshots
-Se aplicável, adicione screenshots.
+2. **Atualizar versões**:
+   ```bash
+   npm version patch  # ou minor/major
+   ```
 
-## Ambiente
-- OS: [e.g. Windows 11]
-- Browser: [e.g. Chrome 120]
-- Versão: [e.g. 1.0.0]
+3. **Merge para main**:
+   ```bash
+   git checkout main
+   git merge release/v1.2.0
+   git tag v1.2.0
+   git push origin main --tags
+   ```
 
-## Logs
-Adicione logs relevantes.
+4. **Merge de volta para develop**:
+   ```bash
+   git checkout develop
+   git merge release/v1.2.0
+   git push origin develop
+   ```
+
+### 6. Padrões de Código
+
+#### TypeScript/React
+
+- Use TypeScript strict mode
+- Prefira interfaces sobre types
+- Use hooks funcionais
+- Componentes em PascalCase
+- Arquivos em kebab-case
+
+#### Rust
+
+- Siga as convenções do Rust
+- Use `cargo fmt` e `cargo clippy`
+- Documente funções públicas
+- Use `Result<T, E>` para error handling
+
+#### CSS/Tailwind
+
+- Use design tokens do `@bruna/design-tokens`
+- Prefira classes utilitárias do Tailwind
+- Mantenha contraste AA para acessibilidade
+- Use variáveis CSS para temas
+
+### 7. Testes
+
+#### Estrutura de Testes
+
+```
+src/
+├── components/
+│   ├── Button/
+│   │   ├── Button.tsx
+│   │   ├── Button.test.tsx
+│   │   └── Button.stories.tsx
 ```
 
-## 💡 Sugerindo Melhorias
+#### Executar Testes
 
-### Template de Feature Request
-```markdown
-## Descrição
-Descrição clara da melhoria sugerida.
-
-## Problema
-Qual problema isso resolve?
-
-## Solução Proposta
-Como você gostaria que funcionasse?
-
-## Alternativas
-Outras soluções consideradas.
-
-## Contexto Adicional
-Qualquer contexto adicional.
-```
-
-## 🧪 Testes
-
-### Executando Testes
 ```bash
 # Todos os testes
-npm run test
+npm test
 
-# Testes específicos
-npm run test --workspace=site-bruna
-npm run test --workspace=app-bruna
+# Testes com watch
+npm run test:watch
 
-# Testes com coverage
+# Coverage
 npm run test:coverage
 ```
 
-### Escrevendo Testes
-- Teste casos de sucesso e erro
-- Use mocks para dependências externas
-- Mantenha testes simples e focados
-- Nomeie testes de forma descritiva
+### 8. Design System
 
-## 📚 Recursos Úteis
+#### Usando Design Tokens
 
-### Documentação
-- [Next.js Docs](https://nextjs.org/docs)
-- [Tauri Docs](https://tauri.app/)
-- [React Docs](https://react.dev/)
-- [TypeScript Docs](https://www.typescriptlang.org/docs/)
+```typescript
+import { colors, spacing, typography } from '@bruna/design-tokens';
 
-### Ferramentas
-- [ESLint](https://eslint.org/)
-- [Prettier](https://prettier.io/)
-- [TailwindCSS](https://tailwindcss.com/)
-- [shadcn/ui](https://ui.shadcn.com/)
+// Em componentes
+<div style={{ 
+  color: colors.primary.DEFAULT,
+  padding: spacing[3],
+  fontFamily: typography.fontFamily.sans
+}}>
+```
 
-## ❓ Dúvidas?
+#### Adicionando Novos Tokens
 
-Se você tem dúvidas sobre como contribuir:
-- Abra uma [issue](https://github.com/dra-bruna/sistema-dra-bruna/issues)
-- Consulte a [documentação](docs/)
-- Verifique os [ADRs](docs/adr/)
+1. Atualize `design-tokens/src/tokens.ts`
+2. Build o pacote: `npm run build --workspace=design-tokens`
+3. Teste em ambos os projetos
 
----
+### 9. Acessibilidade
 
-Obrigado por contribuir com o Sistema Dra. Bruna! 🎉
+#### Checklist de Acessibilidade
+
+- [ ] Contraste AA (4.5:1) para texto normal
+- [ ] Contraste AAA (7:1) para texto pequeno
+- [ ] Estados de foco visíveis
+- [ ] Labels para todos os inputs
+- [ ] Alt text para imagens
+- [ ] Navegação por teclado
+- [ ] Screen reader friendly
+
+### 10. Segurança
+
+#### Checklist de Segurança
+
+- [ ] Dados sensíveis criptografados
+- [ ] Validação de inputs
+- [ ] Sanitização de dados
+- [ ] Headers de segurança
+- [ ] Secrets não versionados
+- [ ] Dependências atualizadas
+
+## Suporte
+
+- **Issues**: Use o GitHub Issues para bugs e feature requests
+- **Discussões**: Use GitHub Discussions para perguntas
+- **Email**: contato@drabruna.com.br
+
+## Agradecimentos
+
+Obrigado por contribuir para o Sistema Dra. Bruna! Suas contribuições ajudam a melhorar o atendimento odontológico.

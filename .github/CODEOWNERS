@@ -1,0 +1,25 @@
+# Code Owners - Sistema Dra. Bruna
+# Este arquivo define quem deve revisar mudanças em diferentes partes do código
+
+# Arquivos de configuração e documentação
+/.github/ @dra-bruna/team
+/README.md @dra-bruna/team
+/CONTRIBUTING.md @dra-bruna/team
+/docs/ @dra-bruna/team
+
+# Design system e tokens
+/design-tokens/ @dra-bruna/design-team
+
+# Site institucional
+/site-bruna/ @dra-bruna/frontend-team
+
+# Aplicativo desktop
+/app-bruna/ @dra-bruna/frontend-team
+/app-bruna/src-tauri/ @dra-bruna/backend-team
+
+# CI/CD e workflows
+/.github/workflows/ @dra-bruna/devops-team
+
+# Configurações de segurança
+/SECURITY.md @dra-bruna/security-team
+/rustfmt.toml @dra-bruna/backend-team

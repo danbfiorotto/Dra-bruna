@@ -1,29 +1,50 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 201 60% 45%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 201 60% 45%;
+    /* Cores da marca Dra. Bruna - Design Dourado/Preto */
+    --background: 0 0% 100%; /* Branco */
+    --foreground: 0 0% 0%; /* Preto */
+    --card: 0 0% 100%; /* Branco */
+    --card-foreground: 0 0% 0%; /* Preto */
+    --popover: 0 0% 100%; /* Branco */
+    --popover-foreground: 0 0% 0%; /* Preto */
+    
+    /* Primária: Dourado */
+    --primary: 38 47% 61%; /* Dourado */
+    --primary-foreground: 0 0% 0%; /* Preto */
+    
+    /* Secundária: Cinza claro */
+    --secondary: 0 0% 96%; /* Cinza muito claro */
+    --secondary-foreground: 0 0% 0%; /* Preto */
+    
+    /* Accent: Cinza claro */
+    --accent: 0 0% 96%; /* Cinza muito claro */
+    --accent-foreground: 0 0% 0%; /* Preto */
+    
+    /* Neutras */
+    --muted: 0 0% 96%; /* Cinza muito claro */
+    --muted-foreground: 0 0% 45%; /* Cinza médio */
+    --border: 0 0% 90%; /* Cinza claro para bordas */
+    --input: 0 0% 90%; /* Cinza claro para inputs */
+    --ring: 38 47% 61%; /* Dourado para focus */
+    
+    /* Estados */
+    --destructive: 0 84.2% 60.2%; /* Vermelho */
+    --destructive-foreground: 0 0% 100%; /* Branco */
+    --success: 142 76% 36%; /* Verde */
+    --success-foreground: 0 0% 100%; /* Branco */
+    --warning: 38 92% 50%; /* Amarelo */
+    --warning-foreground: 0 0% 0%; /* Preto */
+    
+    /* Custom Brand Colors */
+    --gold: 38 47% 61%; /* Dourado principal */
+    --black: 0 0% 0%; /* Preto */
+    --light-gray: 0 0% 96%; /* Cinza muito claro */
+    --soft-pink: 357 42% 85%; /* Rosa suave */
+    
     --radius: 0.5rem;
   }
 }
@@ -34,10 +55,10 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-inter), system-ui, sans-serif;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Poppins', system-ui, sans-serif;
+    font-family: var(--font-playfair), serif;
   }
 }
 
@@ -52,5 +73,30 @@
   
   .text-balance {
     text-wrap: balance;
+  }
+  
+  /* Performance optimizations */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Focus styles for accessibility */
+  .focus-visible:focus-visible {
+    @apply outline-none ring-2 ring-gold ring-offset-2;
   }
 }

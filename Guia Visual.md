@@ -1,13 +1,15 @@
-Guia Visual – Dra. Bruna
+Guia Visual – Dra. Bruna Torelli Soares
 1. Paleta de Cores (hex sugeridos)
 
-Primária (azul suave): #3A7CA5 (calma/confiança).
+Primária (dourado): #D4AF37 (elegância/profissionalismo).
 
-Secundária (cinza claro): #F5F6F8 (fundos) e #D1D5DB (bordas).
+Secundária (preto): #000000 (autoridade/sofisticação).
 
-Texto principal: #1F2937 (cinza/azul escuro).
+Neutras (cinza claro): #F5F5F5 (fundos) e #D1D5DB (bordas).
 
-CTA (verde/turquesa): #2D9C8F (botões de ação).
+Texto principal: #000000 (preto) e #374151 (cinza escuro).
+
+CTA (dourado): #D4AF37 (botões de ação principais).
 
 Suporte (erros/alertas):
 
@@ -17,13 +19,13 @@ Sucesso: #16A34A
 
 Aviso: #F59E0B.
 
-👉 Fundo branco sempre predominante, com áreas cinza-claro para separar blocos.
+👉 Fundo branco sempre predominante, com áreas cinza-claro para separar blocos. Design elegante e sofisticado com dourado como cor principal.
 
 2. Tipografia
 
 Sugestão Google Fonts (usadas tanto em web quanto no app):
 
-Títulos/H1–H3: Poppins (bold para autoridade, moderno e limpo).
+Títulos/H1–H3: Playfair Display (elegante, sofisticado, serifado para autoridade).
 
 Textos corridos: Inter (regular/medium, legibilidade ótima).
 
@@ -62,9 +64,9 @@ Configurações ⚙️
 4. Componentes UI
 Botões
 
-Primário (CTA): fundo azul #3A7CA5, texto branco, borda arredondada (8px).
+Primário (CTA): fundo dourado #D4AF37, texto preto, borda arredondada (8px).
 
-Secundário: borda cinza, texto escuro, fundo branco.
+Secundário: borda dourada, texto dourado, fundo branco, hover dourado.
 
 Destrutivo: fundo vermelho #DC2626, texto branco.
 
@@ -72,7 +74,7 @@ Inputs
 
 Fundo branco, borda #D1D5DB, radius 6px.
 
-Focus: borda azul primária + sombra leve.
+Focus: borda dourada + sombra leve.
 
 Cards
 
@@ -80,7 +82,7 @@ Fundo branco, sombra suave (rgba(0,0,0,0.05)), borda arredondada (12px).
 
 Padding interno de 16–24px.
 
-Título no topo (Inter semibold), conteúdo central limpo.
+Título no topo (Playfair Display semibold), conteúdo central limpo.
 
 5. Layout
 
@@ -102,10 +104,12 @@ App: apenas splash/login e tela Sobre/Compliance. Nas telas de trabalho → foco
 
 7. Tom Visual
 
-Profissional (transmite autoridade).
+Elegante e Sofisticado (transmite autoridade e profissionalismo).
 
 Acolhedor (humanização no texto e imagens).
 
 Clean (sem excesso de elementos).
 
-Moderno (UI baseada em design system consistente).
+Moderno (UI baseada em design system consistente com dourado/preto).
+
+Luxuoso (dourado transmite qualidade e excelência).

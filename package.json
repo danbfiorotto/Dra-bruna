@@ -5,7 +5,8 @@
   "private": true,
   "workspaces": [
     "site-bruna",
-    "app-bruna"
+    "app-bruna",
+    "design-tokens"
   ],
   "scripts": {
     "dev:site": "npm run dev --workspace=site-bruna",
