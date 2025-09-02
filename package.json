@@ -1,0 +1,48 @@
+{
+  "name": "sistema-dra-bruna",
+  "version": "1.0.0",
+  "description": "Sistema integrado Dra. Bruna - Site Vitrine e App Desktop",
+  "private": true,
+  "workspaces": [
+    "site-bruna",
+    "app-bruna"
+  ],
+  "scripts": {
+    "dev:site": "npm run dev --workspace=site-bruna",
+    "dev:app": "npm run dev --workspace=app-bruna",
+    "build:site": "npm run build --workspace=site-bruna",
+    "build:app": "npm run build --workspace=app-bruna",
+    "lint": "npm run lint --workspaces",
+    "lint:fix": "npm run lint:fix --workspaces",
+    "test": "npm run test --workspaces",
+    "clean": "npm run clean --workspaces"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "critters": "^0.0.23",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
+    "prettier": "^3.2.5",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dra-bruna/sistema-dra-bruna.git"
+  },
+  "keywords": [
+    "medical",
+    "clinic",
+    "tauri",
+    "nextjs",
+    "react",
+    "typescript"
+  ],
+  "author": "Dra. Bruna",
+  "license": "UNLICENSED"
+}

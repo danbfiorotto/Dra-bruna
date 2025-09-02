@@ -1,0 +1,93 @@
+{
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devPath": "http://localhost:1420",
+    "distDir": "../dist"
+  },
+  "package": {
+    "productName": "Sistema Dra. Bruna",
+    "version": "1.0.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+      },
+      "fs": {
+        "all": true,
+        "readFile": true,
+        "writeFile": true,
+        "readDir": true,
+        "copyFile": true,
+        "createDir": true,
+        "removeDir": true,
+        "removeFile": true,
+        "renameFile": true,
+        "exists": true
+      },
+      "path": {
+        "all": true
+      },
+      "dialog": {
+        "all": true,
+        "open": true,
+        "save": true
+      },
+      "store": {
+        "all": true
+      },
+      "http": {
+        "all": true,
+        "request": true
+      },
+      "notification": {
+        "all": true
+      },
+      "process": {
+        "all": true,
+        "relaunch": true,
+        "exit": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "targets": "all",
+      "identifier": "com.drabruna.clinic",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "resources": [],
+      "externalBin": [],
+      "copyright": "© 2024 Dra. Bruna. Todos os direitos reservados.",
+      "category": "Medical",
+      "shortDescription": "Sistema de gestão clínica Dra. Bruna",
+      "longDescription": "Aplicativo desktop para gestão completa de pacientes, agenda, prontuários e finanças da clínica Dra. Bruna.",
+      "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": ""
+      }
+    },
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "resizable": true,
+        "title": "Sistema Dra. Bruna",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ]
+  }
+}

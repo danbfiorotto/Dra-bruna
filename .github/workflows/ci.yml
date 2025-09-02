@@ -1,0 +1,169 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+env:
+  NODE_VERSION: '18'
+  RUST_VERSION: '1.75'
+
+jobs:
+  # Site Bruna - Next.js
+  site-bruna:
+    name: Site Bruna (Next.js)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm run install --workspace=site-bruna
+
+      - name: Lint
+        run: npm run lint --workspace=site-bruna
+
+      - name: Type check
+        run: npm run type-check --workspace=site-bruna
+
+      - name: Build
+        run: npm run build --workspace=site-bruna
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-bruna-build
+          path: site-bruna/out/
+          retention-days: 7
+
+  # App Bruna - Tauri
+  app-bruna:
+    name: App Bruna (Tauri)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            app-bruna/src-tauri/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm run install --workspace=app-bruna
+
+      - name: Install Tauri CLI
+        run: npm install -g @tauri-apps/cli
+
+      - name: Lint TypeScript
+        run: npm run lint --workspace=app-bruna
+
+      - name: Type check
+        run: npm run type-check --workspace=app-bruna
+
+      - name: Lint Rust
+        run: |
+          cd app-bruna/src-tauri
+          cargo clippy -- -D warnings
+
+      - name: Format check Rust
+        run: |
+          cd app-bruna/src-tauri
+          cargo fmt -- --check
+
+      - name: Build frontend
+        run: npm run build --workspace=app-bruna
+
+      - name: Build Tauri app
+        run: |
+          cd app-bruna
+          npm run tauri:build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-bruna-build
+          path: app-bruna/src-tauri/target/release/bundle/
+          retention-days: 7
+
+  # Security scan
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Test matrix
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        workspace: [site-bruna, app-bruna]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm run install --workspace=${{ matrix.workspace }}
+
+      - name: Run tests
+        run: npm run test --workspace=${{ matrix.workspace }}
+        continue-on-error: true
