@@ -1,26 +1,16 @@
 import Layout from '../components/Layout';
+import ContactForm from '../components/ContactForm';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
-import { useContactForm } from '../hooks/useContactForm';
 import { 
   MessageCircle, 
   Phone, 
   Mail, 
   MapPin, 
-  Clock,
-  Send,
-  CheckCircle,
-  AlertCircle
+  Clock
 } from 'lucide-react';
 
 export default function Contato() {
-  const {
-    formData,
-    isSubmitting,
-    submitStatus,
-    handleInputChange,
-    handleSubmit
-  } = useContactForm();
 
   const handleWhatsApp = () => {
     const message = encodeURIComponent('Olá! Gostaria de agendar uma consulta com a Dra. Bruna.');
@@ -58,17 +48,7 @@ export default function Contato() {
     }
   ];
 
-  const subjects = [
-    'Agendamento de Consulta',
-    'Dúvidas sobre Tratamento de Canal',
-    'Endodontia Microscópica',
-    'Retratamento Endodôntico',
-    'Cirurgia Apical',
-    'Tratamento de Urgência',
-    'Orçamento',
-    'Informações Gerais',
-    'Outros'
-  ];
+
 
   return (
     <Layout
@@ -132,134 +112,7 @@ export default function Contato() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             {/* Contact Form */}
             <div>
-              <h2 className="text-2xl sm:text-3xl font-serif font-bold text-center mb-3 sm:mb-4 text-black">
-                Envie sua Mensagem
-              </h2>
-              <div className="w-16 sm:w-20 h-1 bg-gold mx-auto mb-8 sm:mb-12"></div>
-              <p className="text-gray-700 mb-8">
-                Preencha o formulário abaixo e entraremos em contato em breve.
-              </p>
-
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-black mb-2">
-                      Nome Completo *
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
-                      placeholder="Seu nome completo"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-black mb-2">
-                      E-mail *
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
-                      placeholder="seu@email.com"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-black mb-2">
-                      Telefone
-                    </label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
-                      placeholder="(11) 99999-9999"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="subject" className="block text-sm font-medium text-black mb-2">
-                      Assunto *
-                    </label>
-                    <select
-                      id="subject"
-                      name="subject"
-                      value={formData.subject}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
-                    >
-                      <option value="">Selecione um assunto</option>
-                      {subjects.map((subject) => (
-                        <option key={subject} value={subject}>
-                          {subject}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="message" className="block text-sm font-medium text-black mb-2">
-                    Mensagem *
-                  </label>
-                  <textarea
-                    id="message"
-                    name="message"
-                    value={formData.message}
-                    onChange={handleInputChange}
-                    required
-                    rows={5}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
-                    placeholder="Descreva sua dúvida ou solicitação..."
-                  />
-                </div>
-
-                {submitStatus === 'success' && (
-                  <div className="flex items-center space-x-2 text-green-600">
-                    <CheckCircle className="w-5 h-5" />
-                    <span>Mensagem enviada com sucesso! Entraremos em contato em breve.</span>
-                  </div>
-                )}
-
-                {submitStatus === 'error' && (
-                  <div className="flex items-center space-x-2 text-red-600">
-                    <AlertCircle className="w-5 h-5" />
-                    <span>Erro ao enviar mensagem. Tente novamente ou entre em contato por WhatsApp.</span>
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  size="lg"
-                  disabled={isSubmitting}
-                  className="w-full flex items-center justify-center space-x-2 bg-gold text-black hover:bg-gold/90"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                      <span>Enviando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-5 h-5" />
-                      <span>Enviar Mensagem</span>
-                    </>
-                  )}
-                </Button>
-              </form>
+              <ContactForm />
             </div>
 
             {/* Map and Hours */}

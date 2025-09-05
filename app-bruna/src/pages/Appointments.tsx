@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
-import { safeInvoke } from '@/hooks/useTauri';
+import { invoke } from '@tauri-apps/api/core';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Calendar, Clock, User } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Plus, Calendar, Clock, Edit, Trash2, X } from 'lucide-react';
 
 interface Appointment {
   id: string;
   patient_id: string;
+  patient_name?: string;
   date: string;
   time: string;
   status: string;
@@ -15,24 +20,121 @@ interface Appointment {
   updated_at: string;
 }
 
+interface Patient {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
+interface CreateAppointmentRequest {
+  patient_id: string;
+  date: string;
+  time: string;
+  status: string;
+  notes?: string;
+}
+
 export function Appointments() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [formData, setFormData] = useState<CreateAppointmentRequest>({
+    patient_id: '',
+    date: '',
+    time: '',
+    status: 'pendente',
+    notes: ''
+  });
 
   useEffect(() => {
     loadAppointments();
+    loadPatients();
   }, []);
 
   const loadAppointments = async () => {
     try {
       setLoading(true);
-      const result = await safeInvoke<Appointment[]>('get_appointments');
-      setAppointments(result);
+      const result = await invoke('db_get_appointments');
+      setAppointments(result as Appointment[]);
     } catch (error) {
       console.error('Erro ao carregar consultas:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadPatients = async () => {
+    try {
+      const result = await invoke('db_get_patients');
+      setPatients(result as Patient[]);
+    } catch (error) {
+      console.error('Erro ao carregar pacientes:', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingAppointment) {
+        await invoke('db_update_appointment', {
+          id: editingAppointment.id,
+          request: formData
+        });
+      } else {
+        await invoke('db_create_appointment', { request: formData });
+      }
+      
+      setShowForm(false);
+      setEditingAppointment(null);
+      setFormData({
+        patient_id: '',
+        date: '',
+        time: '',
+        status: 'pendente',
+        notes: ''
+      });
+      loadAppointments();
+    } catch (error) {
+      console.error('Erro ao salvar consulta:', error);
+    }
+  };
+
+  const handleEdit = (appointment: Appointment) => {
+    setEditingAppointment(appointment);
+    setFormData({
+      patient_id: appointment.patient_id,
+      date: appointment.date,
+      time: appointment.time,
+      status: appointment.status,
+      notes: appointment.notes || ''
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir esta consulta?')) {
+      try {
+        await invoke('db_delete_appointment', { id });
+        loadAppointments();
+      } catch (error) {
+        console.error('Erro ao excluir consulta:', error);
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    setShowForm(false);
+    setEditingAppointment(null);
+    setFormData({
+      patient_id: '',
+      date: '',
+      time: '',
+      status: 'pendente',
+      notes: ''
+    });
   };
 
   const getStatusColor = (status: string) => {
@@ -60,12 +162,114 @@ export function Appointments() {
               Gerencie a agenda de consultas da clínica
             </p>
           </div>
-          <Button className="bg-primary hover:bg-primary/90">
+          <Button 
+            onClick={() => setShowForm(true)}
+            className="bg-primary hover:bg-primary/90"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Nova Consulta
           </Button>
         </div>
       </div>
+
+      {/* Formulário de Consulta */}
+      {showForm && (
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>
+                {editingAppointment ? 'Editar Consulta' : 'Nova Consulta'}
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={handleCancel}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="patient_id">Paciente</Label>
+                  <Select
+                    value={formData.patient_id}
+                    onValueChange={(value) => setFormData({ ...formData, patient_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um paciente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {patients.map((patient) => (
+                        <SelectItem key={patient.id} value={patient.id}>
+                          {patient.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pendente">Pendente</SelectItem>
+                      <SelectItem value="confirmada">Confirmada</SelectItem>
+                      <SelectItem value="realizada">Realizada</SelectItem>
+                      <SelectItem value="cancelada">Cancelada</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="date">Data</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="time">Horário</Label>
+                  <Input
+                    id="time"
+                    type="time"
+                    value={formData.time}
+                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="notes">Observações</Label>
+                <Textarea
+                  id="notes"
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="Observações sobre a consulta..."
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={handleCancel}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-primary hover:bg-primary/90">
+                  {editingAppointment ? 'Atualizar' : 'Criar'} Consulta
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
@@ -93,7 +297,7 @@ export function Appointments() {
                         </div>
                         <div className="flex-1">
                           <h3 className="font-medium text-gray-900">
-                            Paciente ID: {appointment.patient_id}
+                            {appointment.patient_name || `Paciente ID: ${appointment.patient_id}`}
                           </h3>
                           <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
                             <span className="flex items-center">
@@ -116,8 +320,20 @@ export function Appointments() {
                         <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(appointment.status)}`}>
                           {appointment.status}
                         </span>
-                        <Button variant="outline" size="sm">
-                          Editar
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleEdit(appointment)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDelete(appointment.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>

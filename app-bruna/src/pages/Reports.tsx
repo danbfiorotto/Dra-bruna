@@ -1,8 +1,111 @@
+import { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, FileText, Calendar, Users, DollarSign } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Download, FileText, Calendar, Users, DollarSign, FolderOpen, BarChart3 } from 'lucide-react';
+
+interface AppointmentStats {
+  total: number;
+  confirmed: number;
+  pending: number;
+  completed: number;
+  cancelled: number;
+  confirmation_rate: number;
+  completion_rate: number;
+}
 
 export function Reports() {
+  const [stats, setStats] = useState<AppointmentStats | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+  useEffect(() => {
+    loadStatistics();
+  }, []);
+
+  const loadStatistics = async () => {
+    try {
+      const result = await invoke('get_appointment_statistics');
+      setStats(result as AppointmentStats);
+    } catch (error) {
+      console.error('Erro ao carregar estatísticas:', error);
+    }
+  };
+
+  const downloadCSV = async (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPatients = async () => {
+    try {
+      setLoading(true);
+      const content = await invoke('generate_patients_report');
+      await downloadCSV(content as string, `pacientes_${new Date().toISOString().split('T')[0]}.csv`);
+    } catch (error) {
+      console.error('Erro ao exportar pacientes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportAppointments = async () => {
+    try {
+      setLoading(true);
+      const content = await invoke('generate_appointments_report');
+      await downloadCSV(content as string, `consultas_${new Date().toISOString().split('T')[0]}.csv`);
+    } catch (error) {
+      console.error('Erro ao exportar consultas:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportDocuments = async () => {
+    try {
+      setLoading(true);
+      const content = await invoke('generate_documents_report');
+      await downloadCSV(content as string, `documentos_${new Date().toISOString().split('T')[0]}.csv`);
+    } catch (error) {
+      console.error('Erro ao exportar documentos:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportDailyAppointments = async () => {
+    try {
+      setLoading(true);
+      const content = await invoke('generate_daily_appointments_report', { date: selectedDate });
+      await downloadCSV(content as string, `agenda_${selectedDate}.csv`);
+    } catch (error) {
+      console.error('Erro ao exportar agenda do dia:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBackup = async () => {
+    try {
+      setLoading(true);
+      const result = await invoke('backup_database');
+      alert(result);
+    } catch (error) {
+      console.error('Erro ao criar backup:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div>
       <div className="mb-8">
@@ -11,6 +114,54 @@ export function Reports() {
           Gere relatórios e exportações dos dados da clínica
         </p>
       </div>
+
+      {/* Estatísticas */}
+      {stats && (
+        <div className="mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <BarChart3 className="h-5 w-5 mr-2" />
+                Estatísticas das Consultas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
+                  <div className="text-sm text-gray-500">Total</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{stats.confirmed}</div>
+                  <div className="text-sm text-gray-500">Confirmadas</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+                  <div className="text-sm text-gray-500">Pendentes</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{stats.completed}</div>
+                  <div className="text-sm text-gray-500">Realizadas</div>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-gray-900">
+                    {stats.confirmation_rate.toFixed(1)}%
+                  </div>
+                  <div className="text-sm text-gray-500">Taxa de Confirmação</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-gray-900">
+                    {stats.completion_rate.toFixed(1)}%
+                  </div>
+                  <div className="text-sm text-gray-500">Taxa de Realização</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card>
@@ -25,18 +176,17 @@ export function Reports() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600 mb-4">
-              Exporte dados dos pacientes em formato CSV ou PDF
+              Exporte dados dos pacientes em formato CSV
             </p>
-            <div className="space-y-2">
-              <Button variant="outline" className="w-full">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar CSV
-              </Button>
-              <Button variant="outline" className="w-full">
-                <FileText className="h-4 w-4 mr-2" />
-                Gerar PDF
-              </Button>
-            </div>
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={handleExportPatients}
+              disabled={loading}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {loading ? 'Exportando...' : 'Exportar CSV'}
+            </Button>
           </CardContent>
         </Card>
 
@@ -52,16 +202,75 @@ export function Reports() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600 mb-4">
-              Relatório de consultas por período
+              Relatório completo de consultas
             </p>
-            <div className="space-y-2">
-              <Button variant="outline" className="w-full">
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={handleExportAppointments}
+              disabled={loading}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {loading ? 'Exportando...' : 'Exportar CSV'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <FolderOpen className="h-5 w-5 mr-2" />
+              Relatório de Documentos
+            </CardTitle>
+            <CardDescription>
+              Lista de documentos armazenados
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-600 mb-4">
+              Relatório de documentos por paciente
+            </p>
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={handleExportDocuments}
+              disabled={loading}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {loading ? 'Exportando...' : 'Exportar CSV'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Calendar className="h-5 w-5 mr-2" />
+              Agenda do Dia
+            </CardTitle>
+            <CardDescription>
+              Impressão da agenda diária
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="date">Data</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                />
+              </div>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={handleExportDailyAppointments}
+                disabled={loading}
+              >
                 <Download className="h-4 w-4 mr-2" />
-                Exportar CSV
-              </Button>
-              <Button variant="outline" className="w-full">
-                <FileText className="h-4 w-4 mr-2" />
-                Gerar PDF
+                {loading ? 'Exportando...' : 'Exportar CSV'}
               </Button>
             </div>
           </CardContent>
@@ -81,64 +290,10 @@ export function Reports() {
             <p className="text-sm text-gray-600 mb-4">
               Receitas, despesas e lucro por período
             </p>
-            <div className="space-y-2">
-              <Button variant="outline" className="w-full">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar CSV
-              </Button>
-              <Button variant="outline" className="w-full">
-                <FileText className="h-4 w-4 mr-2" />
-                Gerar PDF
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Calendar className="h-5 w-5 mr-2" />
-              Agenda do Dia
-            </CardTitle>
-            <CardDescription>
-              Impressão da agenda diária
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600 mb-4">
-              Imprima a agenda do dia atual
-            </p>
-            <Button variant="outline" className="w-full">
-              <FileText className="h-4 w-4 mr-2" />
-              Imprimir Agenda
+            <Button variant="outline" className="w-full" disabled>
+              <Download className="h-4 w-4 mr-2" />
+              Em Desenvolvimento
             </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <DollarSign className="h-5 w-5 mr-2" />
-              Fluxo de Caixa
-            </CardTitle>
-            <CardDescription>
-              Relatório de fluxo de caixa mensal
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600 mb-4">
-              Entradas e saídas do mês
-            </p>
-            <div className="space-y-2">
-              <Button variant="outline" className="w-full">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar CSV
-              </Button>
-              <Button variant="outline" className="w-full">
-                <FileText className="h-4 w-4 mr-2" />
-                Gerar PDF
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
@@ -156,9 +311,14 @@ export function Reports() {
             <p className="text-sm text-gray-600 mb-4">
               Crie um backup de todos os dados
             </p>
-            <Button variant="outline" className="w-full">
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={handleBackup}
+              disabled={loading}
+            >
               <Download className="h-4 w-4 mr-2" />
-              Criar Backup
+              {loading ? 'Criando...' : 'Criar Backup'}
             </Button>
           </CardContent>
         </Card>

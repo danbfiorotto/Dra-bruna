@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { safeInvoke } from '@/hooks/useTauri';
+// import { safeInvoke } from '@/hooks/useTauri';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Calendar, DollarSign, FileText } from 'lucide-react';
 

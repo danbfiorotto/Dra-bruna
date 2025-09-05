@@ -1,25 +1,34 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useAuth } from '../hooks/useAuth';
+import { Button } from './ui/button';
 import {
   LayoutDashboard,
   Users,
   Calendar,
   FileText,
+  FolderOpen,
   DollarSign,
   BarChart3,
+  Cloud,
   Settings,
   Menu,
   X,
+  LogOut,
+  User,
+  Shield,
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Pacientes', href: '/patients', icon: Users },
   { name: 'Agenda', href: '/appointments', icon: Calendar },
+  { name: 'Documentos', href: '/documents', icon: FolderOpen },
   { name: 'Prontuários', href: '/medical-records', icon: FileText },
   { name: 'Financeiro', href: '/financial', icon: DollarSign },
   { name: 'Relatórios', href: '/reports', icon: BarChart3 },
+  { name: 'Logs de Auditoria', href: '/audit-logs', icon: Shield },
   { name: 'Configurações', href: '/settings', icon: Settings },
 ];
 
@@ -30,6 +39,23 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      window.location.reload();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'admin': return 'Administrador';
+      default: return role;
+    }
+  };
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-100">
@@ -112,15 +138,44 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Main content */}
       <div className="flex flex-col w-0 flex-1 overflow-hidden">
-        <div className="md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3">
-          <button
-            type="button"
-            className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="h-6 w-6" />
-          </button>
+        {/* Header */}
+        <div className="relative z-10 flex-shrink-0 flex h-16 bg-white shadow">
+          <div className="flex-1 px-4 flex justify-between">
+            <div className="flex-1 flex items-center">
+              <div className="md:hidden">
+                <button
+                  type="button"
+                  className="h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
+                  onClick={() => setSidebarOpen(true)}
+                >
+                  <Menu className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+            <div className="ml-4 flex items-center md:ml-6">
+              {/* User info and logout */}
+              <div className="flex items-center space-x-4">
+                {user && (
+                  <div className="flex items-center space-x-2 text-sm text-gray-700">
+                    <User className="h-4 w-4" />
+                    <span className="font-medium">{user.email}</span>
+                    <span className="text-gray-500">({getRoleDisplayName(user.role)})</span>
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="flex items-center space-x-1"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Sair</span>
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
+
         <main className="flex-1 relative overflow-y-auto focus:outline-none">
           <div className="py-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
