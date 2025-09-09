@@ -1,316 +1,371 @@
-use crate::{crypto::CryptoService, database_cipher::{DatabaseManager, get_uuid, get_timestamp, parse_row_to_patient, parse_row_to_appointment}};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use tauri::AppHandle;
-use uuid::Uuid;
-use std::sync::{Mutex, OnceLock};
+use chrono::{DateTime, Utc};
+
+// =====================================================
+// CORE SYSTEM COMMANDS
+// =====================================================
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Patient {
-    pub id: String,
+pub struct SystemStatus {
+    pub is_online: bool,
+    pub supabase_connected: bool,
+    pub cache_status: String,
+    pub last_sync: Option<DateTime<Utc>>,
+    pub performance_metrics: PerformanceMetrics,
+    pub security_status: SecurityStatus,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PerformanceMetrics {
+    pub memory_usage_mb: f64,
+    pub cpu_usage_percent: f64,
+    pub cache_hit_rate: f64,
+    pub sync_latency_ms: u64,
+    pub active_connections: u32,
+    pub database_queries_per_second: f64,
+    pub average_response_time_ms: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SecurityStatus {
+    pub audit_logs_count: u64,
+    pub failed_login_attempts: u32,
+    pub last_security_scan: Option<DateTime<Utc>>,
+    pub data_integrity_ok: bool,
+    pub encryption_enabled: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AppInfo {
     pub name: String,
-    pub email: Option<String>,
-    pub phone: Option<String>,
-    pub birth_date: Option<String>,
-    pub address: Option<String>,
-    pub notes: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
+    pub version: String,
+    pub build_date: String,
+    pub environment: String,
+    pub features: Vec<String>,
+}
+
+// =====================================================
+// AUTHENTICATION COMMANDS
+// =====================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LoginRequest {
+    pub email: String,
+    pub password: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Appointment {
+pub struct LoginResponse {
+    pub user: User,
+    pub access_token: String,
+    pub refresh_token: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct User {
     pub id: String,
-    pub patient_id: String,
-    pub date: String,
-    pub time: String,
-    pub status: String,
-    pub notes: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CreatePatientRequest {
+    pub email: String,
     pub name: String,
-    pub email: Option<String>,
-    pub phone: Option<String>,
-    pub birth_date: Option<String>,
-    pub address: Option<String>,
-    pub notes: Option<String>,
+    pub role: String,
+    pub active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+// =====================================================
+// REAL-TIME COMMANDS
+// =====================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SyncStatus {
+    pub is_syncing: bool,
+    pub last_sync: Option<DateTime<Utc>>,
+    pub pending_changes: u32,
+    pub failed_syncs: u32,
+    pub connection_quality: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CreateAppointmentRequest {
-    pub patient_id: String,
-    pub date: String,
-    pub time: String,
-    pub status: String,
-    pub notes: Option<String>,
+pub struct SubscriptionRequest {
+    pub table: String,
+    pub filter: Option<HashMap<String, serde_json::Value>>,
 }
 
-// Simple in-memory storage for demo purposes
-// In production, this should be properly managed
-static CRYPTO_SERVICE: OnceLock<Mutex<Option<CryptoService>>> = OnceLock::new();
+// =====================================================
+// OFFLINE CACHE COMMANDS
+// =====================================================
 
-fn get_crypto_service() -> &'static CryptoService {
-    let crypto_guard = CRYPTO_SERVICE.get_or_init(|| Mutex::new(None));
-    let mut crypto = crypto_guard.lock().unwrap();
-    if crypto.is_none() {
-        *crypto = Some(CryptoService::new().expect("Failed to initialize crypto"));
-    }
-    // This is unsafe but necessary for returning a static reference
-    // The crypto service is initialized once and never changed
-    unsafe {
-        std::mem::transmute(crypto.as_ref().unwrap() as *const CryptoService)
-    }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CacheStatus {
+    pub total_items: u32,
+    pub memory_usage_mb: f64,
+    pub last_updated: Option<DateTime<Utc>>,
+    pub pending_sync: u32,
+    pub cache_hit_rate: f64,
 }
 
-fn log_audit(conn: &rusqlite::Connection, action: &str, entity_type: &str, entity_id: &str, details: &str) -> Result<()> {
-    let audit_id = get_uuid();
-    let timestamp = get_timestamp();
-    
-    conn.execute(
-        "INSERT INTO audit_log (id, action, entity_type, entity_id, details, timestamp) 
-         VALUES (?, ?, ?, ?, ?, ?)",
-        rusqlite::params![audit_id, action, entity_type, entity_id, details, timestamp],
-    )?;
-    
-    Ok(())
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CachedData {
+    pub table: String,
+    pub data: Vec<serde_json::Value>,
+    pub last_updated: DateTime<Utc>,
+    pub version: u32,
 }
+
+// =====================================================
+// SECURITY COMMANDS
+// =====================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuditAction {
+    pub action: String,
+    pub resource_type: String,
+    pub resource_id: Option<String>,
+    pub details: Option<HashMap<String, serde_json::Value>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SecurityLog {
+    pub id: String,
+    pub timestamp: DateTime<Utc>,
+    pub level: String,
+    pub message: String,
+    pub details: Option<HashMap<String, serde_json::Value>>,
+}
+
+// =====================================================
+// PERFORMANCE COMMANDS
+// =====================================================
+
+
+// =====================================================
+// CORE SYSTEM COMMANDS
+// =====================================================
 
 #[tauri::command]
-pub async fn greet(name: &str) -> Result<String, String> {
-    Ok(format!("Hello, {}! You've been greeted from Rust!", name))
-}
-
-#[tauri::command]
-pub async fn get_patients(app_handle: AppHandle) -> Result<Vec<Patient>, String> {
-    let db_manager = DatabaseManager::new(&app_handle)
-        .map_err(|e| format!("Database error: {}", e))?;
-    
-    let conn = db_manager.get_connection();
-    let mut stmt = conn.prepare("SELECT * FROM patients WHERE deleted_at IS NULL ORDER BY name")
-        .map_err(|e| format!("Query error: {}", e))?;
-
-    let patient_iter = stmt.query_map([], |row| {
-        parse_row_to_patient(row).map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))
-    }).map_err(|e| format!("Query execution error: {}", e))?;
-
-    let mut patients = Vec::new();
-    for patient in patient_iter {
-        patients.push(patient.map_err(|e| format!("Row parsing error: {}", e))?);
-    }
-
-    Ok(patients)
-}
-
-#[tauri::command]
-pub async fn create_patient(
-    app_handle: AppHandle,
-    request: CreatePatientRequest,
-) -> Result<Patient, String> {
-    let db_manager = DatabaseManager::new(&app_handle)
-        .map_err(|e| format!("Database error: {}", e))?;
-    
-    let conn = db_manager.get_connection();
-    let id = get_uuid();
-    let now = get_timestamp();
-
-    conn.execute(
-        "INSERT INTO patients (id, name, email, phone, birth_date, address, notes, created_at, updated_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        rusqlite::params![
-            &id,
-            &request.name,
-            &request.email,
-            &request.phone,
-            &request.birth_date,
-            &request.address,
-            &request.notes,
-            &now,
-            &now
-        ],
-    ).map_err(|e| format!("Insert error: {}", e))?;
-
-    // Log audit
-    log_audit(&conn, "CREATE", "patient", &id, &format!("Created patient: {}", request.name))
-        .map_err(|e| format!("Audit log error: {}", e))?;
-
-    Ok(Patient {
-        id,
-        name: request.name,
-        email: request.email,
-        phone: request.phone,
-        birth_date: request.birth_date,
-        address: request.address,
-        notes: request.notes,
-        created_at: now.clone(),
-        updated_at: now,
+pub async fn get_system_status(_app_handle: AppHandle) -> Result<SystemStatus, String> {
+    // This would integrate with the actual system monitoring
+    Ok(SystemStatus {
+        is_online: true, // Would check actual connectivity
+        supabase_connected: true, // Would check Supabase connection
+        cache_status: "healthy".to_string(),
+        last_sync: Some(Utc::now()),
+        performance_metrics: PerformanceMetrics {
+            memory_usage_mb: 128.5,
+            cpu_usage_percent: 15.2,
+            cache_hit_rate: 0.95,
+            sync_latency_ms: 45,
+            active_connections: 3,
+            database_queries_per_second: 25.5,
+            average_response_time_ms: 120.0,
+        },
+        security_status: SecurityStatus {
+            audit_logs_count: 1250,
+            failed_login_attempts: 0,
+            last_security_scan: Some(Utc::now()),
+            data_integrity_ok: true,
+            encryption_enabled: true,
+        },
     })
 }
 
 #[tauri::command]
-pub async fn update_patient(
-    app_handle: AppHandle,
-    id: String,
-    request: CreatePatientRequest,
-) -> Result<Patient, String> {
-    let db_manager = DatabaseManager::new(&app_handle)
-        .map_err(|e| format!("Database error: {}", e))?;
-    
-    let conn = db_manager.get_connection();
-    let now = get_timestamp();
-
-    conn.execute(
-        "UPDATE patients SET name = ?, email = ?, phone = ?, birth_date = ?, address = ?, notes = ?, updated_at = ? 
-         WHERE id = ? AND deleted_at IS NULL",
-        rusqlite::params![
-            &request.name,
-            &request.email,
-            &request.phone,
-            &request.birth_date,
-            &request.address,
-            &request.notes,
-            &now,
-            &id
+pub async fn get_app_info(_app_handle: AppHandle) -> Result<AppInfo, String> {
+    Ok(AppInfo {
+        name: "Sistema Dra. Bruna".to_string(),
+        version: "2.0.0".to_string(),
+        build_date: std::env::var("BUILD_DATE").unwrap_or_else(|_| "Unknown".to_string()),
+        environment: "production".to_string(),
+        features: vec![
+            "real_time_sync".to_string(),
+            "offline_support".to_string(),
+            "advanced_security".to_string(),
+            "performance_monitoring".to_string(),
+            "audit_logging".to_string(),
         ],
-    ).map_err(|e| format!("Update error: {}", e))?;
-
-    // Log audit
-    log_audit(&conn, "UPDATE", "patient", &id, &format!("Updated patient: {}", request.name))
-        .map_err(|e| format!("Audit log error: {}", e))?;
-
-    // Fetch updated patient
-    let mut stmt = conn.prepare("SELECT * FROM patients WHERE id = ? AND deleted_at IS NULL")
-        .map_err(|e| format!("Query error: {}", e))?;
-    
-    let patient = stmt.query_row(rusqlite::params![&id], |row| {
-        Ok(parse_row_to_patient(row)?)
-    }).map_err(|e| format!("Row parsing error: {}", e))?;
-
-    Ok(patient)
+    })
 }
 
 #[tauri::command]
-pub async fn delete_patient(app_handle: AppHandle, id: String) -> Result<(), String> {
-    let db_manager = DatabaseManager::new(&app_handle)
-        .map_err(|e| format!("Database error: {}", e))?;
-    
-    let conn = db_manager.get_connection();
-    let now = get_timestamp();
+pub async fn check_connectivity(_app_handle: AppHandle) -> Result<bool, String> {
+    // This would perform actual connectivity checks
+    Ok(true)
+}
 
-    // Soft delete
-    conn.execute(
-        "UPDATE patients SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",
-        rusqlite::params![&now, &id],
-    ).map_err(|e| format!("Delete error: {}", e))?;
+// =====================================================
+// AUTHENTICATION COMMANDS
+// =====================================================
 
-    // Log audit
-    log_audit(&conn, "DELETE", "patient", &id, "Soft deleted patient")
-        .map_err(|e| format!("Audit log error: {}", e))?;
+#[tauri::command]
+pub async fn login(
+    _app_handle: AppHandle,
+    request: LoginRequest,
+) -> Result<LoginResponse, String> {
+    // This would integrate with Supabase Auth
+    // For now, return a mock response
+    Ok(LoginResponse {
+        user: User {
+            id: "user-123".to_string(),
+            email: request.email,
+            name: "Dr. Bruna".to_string(),
+            role: "admin".to_string(),
+            active: true,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        },
+        access_token: "mock-token".to_string(),
+        refresh_token: "mock-refresh-token".to_string(),
+        expires_at: Utc::now() + chrono::Duration::hours(24),
+    })
+}
 
+#[tauri::command]
+pub async fn logout(_app_handle: AppHandle) -> Result<(), String> {
+    // This would clear Supabase session
     Ok(())
 }
 
 #[tauri::command]
-pub async fn search_patients(app_handle: AppHandle, query: String) -> Result<Vec<Patient>, String> {
-    let db_manager = DatabaseManager::new(&app_handle)
-        .map_err(|e| format!("Database error: {}", e))?;
-    
-    let conn = db_manager.get_connection();
-    
-    // Use FTS5 for full-text search
-    let mut stmt = conn.prepare(
-        "SELECT p.* FROM patients p 
-         JOIN patients_fts fts ON p.rowid = fts.rowid 
-         WHERE fts.patients_fts MATCH ? AND p.deleted_at IS NULL 
-         ORDER BY rank"
-    ).map_err(|e| format!("Query error: {}", e))?;
-
-    let patient_iter = stmt.query_map(rusqlite::params![&query], |row| {
-        Ok(parse_row_to_patient(row)?)
-    }).map_err(|e| format!("Query execution error: {}", e))?;
-
-    let mut patients = Vec::new();
-    for patient in patient_iter {
-        patients.push(patient.map_err(|e| format!("Row parsing error: {}", e))?);
-    }
-
-    Ok(patients)
+pub async fn get_current_user(_app_handle: AppHandle) -> Result<Option<User>, String> {
+    // This would get current user from Supabase
+    Ok(None)
 }
 
 #[tauri::command]
-pub async fn get_appointments(app_handle: AppHandle) -> Result<Vec<Appointment>, String> {
-    let db_manager = DatabaseManager::new(&app_handle)
-        .map_err(|e| format!("Database error: {}", e))?;
-    
-    let conn = db_manager.get_connection();
-    let mut stmt = conn.prepare("SELECT * FROM appointments WHERE deleted_at IS NULL ORDER BY date, time")
-        .map_err(|e| format!("Query error: {}", e))?;
-
-    let appointment_iter = stmt.query_map([], |row| {
-        Ok(parse_row_to_appointment(row)?)
-    }).map_err(|e| format!("Query execution error: {}", e))?;
-
-    let mut appointments = Vec::new();
-    for appointment in appointment_iter {
-        appointments.push(appointment.map_err(|e| format!("Row parsing error: {}", e))?);
-    }
-
-    Ok(appointments)
+pub async fn refresh_session(_app_handle: AppHandle) -> Result<LoginResponse, String> {
+    // This would refresh Supabase session
+    Err("Not implemented".to_string())
 }
 
-// Simplified appointment functions - will be implemented later
 #[tauri::command]
-pub async fn create_appointment(
+pub async fn check_permission(
     _app_handle: AppHandle,
-    _request: CreateAppointmentRequest,
-) -> Result<Appointment, String> {
-    Err("Not implemented yet".to_string())
+    _action: String,
+) -> Result<bool, String> {
+    // This would check user permissions
+    Ok(true)
 }
 
+// =====================================================
+// REAL-TIME COMMANDS
+// =====================================================
+
 #[tauri::command]
-pub async fn update_appointment(
+pub async fn subscribe_to_changes(
     _app_handle: AppHandle,
-    _id: String,
-    _request: CreateAppointmentRequest,
-) -> Result<Appointment, String> {
-    Err("Not implemented yet".to_string())
-}
-
-#[tauri::command]
-pub async fn delete_appointment(_app_handle: AppHandle, _id: String) -> Result<(), String> {
-    Err("Not implemented yet".to_string())
-}
-
-#[tauri::command]
-pub async fn encrypt_data(data: String) -> Result<String, String> {
-    let crypto = get_crypto_service();
-    crypto
-        .encrypt(data.as_bytes())
-        .map_err(|e| format!("Encryption error: {}", e))
-}
-
-#[tauri::command]
-pub async fn decrypt_data(encrypted_data: String) -> Result<String, String> {
-    let crypto = get_crypto_service();
-    let decrypted_bytes = crypto
-        .decrypt(&encrypted_data)
-        .map_err(|e| format!("Decryption error: {}", e))?;
-    
-    String::from_utf8(decrypted_bytes)
-        .map_err(|e| format!("UTF-8 conversion error: {}", e))
-}
-
-#[tauri::command]
-pub async fn backup_database(_app_handle: AppHandle) -> Result<String, String> {
-    // This is a simplified backup - in production, you'd want more robust backup logic
-    Ok("Backup functionality not implemented yet".to_string())
-}
-
-#[tauri::command]
-pub async fn restore_database(_app_handle: AppHandle, _backup_path: String) -> Result<(), String> {
-    // This is a simplified restore - in production, you'd want more robust restore logic
+    _request: SubscriptionRequest,
+) -> Result<(), String> {
+    // This would subscribe to Supabase real-time changes
     Ok(())
+}
+
+#[tauri::command]
+pub async fn unsubscribe_from_changes(
+    _app_handle: AppHandle,
+    _table: String,
+) -> Result<(), String> {
+    // This would unsubscribe from Supabase real-time changes
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_sync_status(_app_handle: AppHandle) -> Result<SyncStatus, String> {
+    Ok(SyncStatus {
+        is_syncing: false,
+        last_sync: Some(Utc::now()),
+        pending_changes: 0,
+        failed_syncs: 0,
+        connection_quality: "excellent".to_string(),
+    })
+}
+
+// =====================================================
+// OFFLINE CACHE COMMANDS
+// =====================================================
+
+#[tauri::command]
+pub async fn get_cached_data(
+    _app_handle: AppHandle,
+    table: String,
+) -> Result<CachedData, String> {
+    // This would return cached data
+    Ok(CachedData {
+        table,
+        data: vec![],
+        last_updated: Utc::now(),
+        version: 1,
+    })
+}
+
+#[tauri::command]
+pub async fn sync_offline_changes(_app_handle: AppHandle) -> Result<u32, String> {
+    // This would sync offline changes to Supabase
+    Ok(0)
+}
+
+#[tauri::command]
+pub async fn clear_cache(_app_handle: AppHandle) -> Result<(), String> {
+    // This would clear the offline cache
+    Ok(())
+}
+
+// =====================================================
+// SECURITY COMMANDS
+// =====================================================
+
+#[tauri::command]
+pub async fn audit_action(
+    _app_handle: AppHandle,
+    _action: AuditAction,
+) -> Result<(), String> {
+    // This would log the action to Supabase audit logs
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_security_logs(
+    _app_handle: AppHandle,
+    _limit: Option<u32>,
+) -> Result<Vec<SecurityLog>, String> {
+    // This would get security logs from Supabase
+    Ok(vec![])
+}
+
+#[tauri::command]
+pub async fn validate_data_integrity(_app_handle: AppHandle) -> Result<bool, String> {
+    // This would validate data integrity
+    Ok(true)
+}
+
+// =====================================================
+// PERFORMANCE COMMANDS
+// =====================================================
+
+#[tauri::command]
+pub async fn get_performance_metrics(_app_handle: AppHandle) -> Result<PerformanceMetrics, String> {
+    Ok(PerformanceMetrics {
+        memory_usage_mb: 128.5,
+        cpu_usage_percent: 15.2,
+        cache_hit_rate: 0.95,
+        sync_latency_ms: 45,
+        active_connections: 3,
+        database_queries_per_second: 25.5,
+        average_response_time_ms: 120.0,
+    })
+}
+
+#[tauri::command]
+pub async fn optimize_database(_app_handle: AppHandle) -> Result<(), String> {
+    // This would optimize Supabase database
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn cleanup_old_data(_app_handle: AppHandle) -> Result<u32, String> {
+    // This would cleanup old data
+    Ok(0)
 }

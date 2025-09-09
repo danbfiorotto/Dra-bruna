@@ -11,7 +11,6 @@ import {
   FolderOpen,
   DollarSign,
   BarChart3,
-  Cloud,
   Settings,
   Menu,
   X,

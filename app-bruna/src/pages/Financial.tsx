@@ -1,8 +1,69 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, DollarSign, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
+import { useFinancial } from '../hooks/useFinancial';
 
 export function Financial() {
+  const {
+    transactions,
+    isLoading,
+    error,
+    getCurrentMonthIncome,
+    getCurrentMonthExpenses,
+    getCurrentMonthProfit,
+    loadData
+  } = useFinancial();
+
+  const [monthlyIncome, setMonthlyIncome] = useState(0);
+  const [monthlyExpenses, setMonthlyExpenses] = useState(0);
+  const [monthlyProfit, setMonthlyProfit] = useState(0);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const [income, expenses, profit] = await Promise.all([
+          getCurrentMonthIncome(),
+          getCurrentMonthExpenses(),
+          getCurrentMonthProfit()
+        ]);
+        setMonthlyIncome(income);
+        setMonthlyExpenses(expenses);
+        setMonthlyProfit(profit);
+      } catch (err) {
+        console.error('Failed to load financial stats:', err);
+      }
+    };
+
+    loadStats();
+  }, [getCurrentMonthIncome, getCurrentMonthExpenses, getCurrentMonthProfit]);
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-600">Erro ao carregar dados financeiros: {error}</p>
+      </div>
+    );
+  }
   return (
     <div>
       <div className="mb-8">
@@ -27,9 +88,9 @@ export function Financial() {
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">R$ 12.500,00</div>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(monthlyIncome)}</div>
             <p className="text-xs text-muted-foreground">
-              +8% em relação ao mês passado
+              Receitas do mês atual
             </p>
           </CardContent>
         </Card>
@@ -40,9 +101,9 @@ export function Financial() {
             <TrendingDown className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">R$ 3.200,00</div>
+            <div className="text-2xl font-bold text-red-600">{formatCurrency(monthlyExpenses)}</div>
             <p className="text-xs text-muted-foreground">
-              +2% em relação ao mês passado
+              Despesas do mês atual
             </p>
           </CardContent>
         </Card>
@@ -53,9 +114,9 @@ export function Financial() {
             <DollarSign className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">R$ 9.300,00</div>
+            <div className="text-2xl font-bold text-blue-600">{formatCurrency(monthlyProfit)}</div>
             <p className="text-xs text-muted-foreground">
-              Margem de 74%
+              {monthlyIncome > 0 ? `Margem de ${((monthlyProfit / monthlyIncome) * 100).toFixed(1)}%` : 'Sem receitas'}
             </p>
           </CardContent>
         </Card>
@@ -71,27 +132,25 @@ export function Financial() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">Consulta - Maria Silva</p>
-                  <p className="text-sm text-gray-500">Hoje, 14:30</p>
-                </div>
-                <span className="text-green-600 font-medium">+R$ 150,00</span>
-              </div>
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">Aluguel do consultório</p>
-                  <p className="text-sm text-gray-500">Ontem, 09:00</p>
-                </div>
-                <span className="text-red-600 font-medium">-R$ 2.500,00</span>
-              </div>
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">Consulta - João Santos</p>
-                  <p className="text-sm text-gray-500">Ontem, 16:00</p>
-                </div>
-                <span className="text-green-600 font-medium">+R$ 200,00</span>
-              </div>
+              {transactions.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">Nenhuma transação encontrada</p>
+              ) : (
+                transactions.slice(0, 5).map((transaction) => (
+                  <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">{transaction.description || transaction.category}</p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(transaction.transaction_date).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                    <span className={`font-medium ${
+                      transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

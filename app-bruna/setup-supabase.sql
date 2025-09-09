@@ -5,6 +5,16 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
+-- Sequência global de revisões para sincronização híbrida
+CREATE SEQUENCE IF NOT EXISTS public.rev_seq START 1;
+
+-- Função para obter próximo rev
+CREATE OR REPLACE FUNCTION get_next_rev() RETURNS BIGINT AS $$
+BEGIN
+    RETURN nextval('public.rev_seq');
+END;
+$$ LANGUAGE plpgsql;
+
 -- Create custom types (only if they don't exist)
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
@@ -36,7 +46,12 @@ CREATE TABLE IF NOT EXISTS public.patients (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     synced_at TIMESTAMP WITH TIME ZONE,
-    sync_status sync_status DEFAULT 'pending'
+    sync_status sync_status DEFAULT 'pending',
+    -- Campos de sincronização híbrida
+    rev BIGINT DEFAULT 0 NOT NULL,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    last_editor TEXT,
+    last_pulled_rev BIGINT DEFAULT 0
 );
 
 -- Appointments table
@@ -50,7 +65,12 @@ CREATE TABLE IF NOT EXISTS public.appointments (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     synced_at TIMESTAMP WITH TIME ZONE,
-    sync_status sync_status DEFAULT 'pending'
+    sync_status sync_status DEFAULT 'pending',
+    -- Campos de sincronização híbrida
+    rev BIGINT DEFAULT 0 NOT NULL,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    last_editor TEXT,
+    last_pulled_rev BIGINT DEFAULT 0
 );
 
 -- Documents table
@@ -65,7 +85,12 @@ CREATE TABLE IF NOT EXISTS public.documents (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     synced_at TIMESTAMP WITH TIME ZONE,
-    sync_status sync_status DEFAULT 'pending'
+    sync_status sync_status DEFAULT 'pending',
+    -- Campos de sincronização híbrida
+    rev BIGINT DEFAULT 0 NOT NULL,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    last_editor TEXT,
+    last_pulled_rev BIGINT DEFAULT 0
 );
 
 -- Document content table (encrypted)

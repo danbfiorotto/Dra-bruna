@@ -16,16 +16,16 @@ function App() {
     <ProtectedRoute>
       <Layout>
         <Routes>
-          <Route path="/" element={<ProtectedRoute requiredPermission="view_dashboard"><Dashboard /></ProtectedRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute requiredPermission="view_dashboard"><Dashboard /></ProtectedRoute>} />
-          <Route path="/patients" element={<ProtectedRoute requiredPermission="view_patients"><Patients /></ProtectedRoute>} />
-          <Route path="/appointments" element={<ProtectedRoute requiredPermission="view_appointments"><Appointments /></ProtectedRoute>} />
-          <Route path="/documents" element={<ProtectedRoute requiredPermission="view_documents"><Documents /></ProtectedRoute>} />
-          <Route path="/medical-records" element={<ProtectedRoute requiredPermission="view_medical_records"><MedicalRecords /></ProtectedRoute>} />
-          <Route path="/financial" element={<ProtectedRoute requiredPermission="view_financial"><Financial /></ProtectedRoute>} />
-          <Route path="/reports" element={<ProtectedRoute requiredPermission="view_reports"><Reports /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute requiredPermission="view_settings"><Settings /></ProtectedRoute>} />
-          <Route path="/audit-logs" element={<ProtectedRoute requiredPermission="view_audit_logs"><AuditLogs /></ProtectedRoute>} />
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/patients" element={<Patients />} />
+          <Route path="/appointments" element={<Appointments />} />
+          <Route path="/documents" element={<Documents />} />
+          <Route path="/medical-records" element={<MedicalRecords />} />
+          <Route path="/financial" element={<Financial />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/audit-logs" element={<AuditLogs />} />
         </Routes>
       </Layout>
     </ProtectedRoute>

@@ -1,5 +1,53 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc};
+
+// Data structures for Supabase integration
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Patient {
+    pub id: String,
+    pub name: String,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub birth_date: Option<String>,
+    pub address: Option<String>,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Appointment {
+    pub id: String,
+    pub patient_id: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub appointment_date: String,
+    pub start_time: String,
+    pub end_time: String,
+    pub status: String,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub user_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Document {
+    pub id: String,
+    pub patient_id: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub file_name: String,
+    pub file_path: String,
+    pub file_size: i64,
+    pub mime_type: String,
+    pub encrypted: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub user_id: String,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SupabaseConfig {
@@ -174,7 +222,7 @@ impl SupabaseClient {
     }
 
     // Sync methods for data synchronization
-    pub async fn create_patient(&self, patient: &crate::commands_simple::Patient) -> Result<()> {
+    pub async fn create_patient(&self, patient: &Patient) -> Result<()> {
         let url = format!("{}/rest/v1/patients", self.config.url);
         
         // Use upsert to handle duplicate keys
@@ -196,7 +244,7 @@ impl SupabaseClient {
         Ok(())
     }
 
-    pub async fn get_patients(&self) -> Result<Vec<crate::commands_simple::Patient>> {
+    pub async fn get_patients(&self) -> Result<Vec<Patient>> {
         let url = format!("{}/rest/v1/patients", self.config.url);
         
         let response = self.client
@@ -211,19 +259,19 @@ impl SupabaseClient {
             return Err(anyhow::anyhow!("Failed to get patients: HTTP {} - {}", status, error_text));
         }
 
-        let patients: Vec<crate::commands_simple::Patient> = response.json().await?;
+        let patients: Vec<Patient> = response.json().await?;
         Ok(patients)
     }
 
-    pub async fn create_appointment(&self, appointment: &crate::commands_simple::Appointment) -> Result<()> {
+    pub async fn create_appointment(&self, appointment: &Appointment) -> Result<()> {
         let url = format!("{}/rest/v1/appointments", self.config.url);
         
         // Create a Supabase-compatible appointment without patient_name
         let supabase_appointment = serde_json::json!({
             "id": appointment.id,
             "patient_id": appointment.patient_id,
-            "date": appointment.date,
-            "time": appointment.time,
+            "date": appointment.appointment_date,
+            "time": appointment.start_time,
             "status": appointment.status,
             "notes": appointment.notes,
             "created_at": appointment.created_at,
@@ -248,7 +296,7 @@ impl SupabaseClient {
         Ok(())
     }
 
-    pub async fn get_appointments(&self) -> Result<Vec<crate::commands_simple::Appointment>> {
+    pub async fn get_appointments(&self) -> Result<Vec<Appointment>> {
         let url = format!("{}/rest/v1/appointments", self.config.url);
         
         let response = self.client
@@ -263,11 +311,11 @@ impl SupabaseClient {
             return Err(anyhow::anyhow!("Failed to get appointments: HTTP {} - {}", status, error_text));
         }
 
-        let appointments: Vec<crate::commands_simple::Appointment> = response.json().await?;
+        let appointments: Vec<Appointment> = response.json().await?;
         Ok(appointments)
     }
 
-    pub async fn create_document(&self, document: &crate::commands_simple::Document) -> Result<()> {
+    pub async fn create_document(&self, document: &Document) -> Result<()> {
         let url = format!("{}/rest/v1/documents", self.config.url);
         
         let response = self.client
@@ -287,7 +335,7 @@ impl SupabaseClient {
         Ok(())
     }
 
-    pub async fn get_documents(&self) -> Result<Vec<crate::commands_simple::Document>> {
+    pub async fn get_documents(&self) -> Result<Vec<Document>> {
         let url = format!("{}/rest/v1/documents", self.config.url);
         
         let response = self.client
@@ -302,7 +350,7 @@ impl SupabaseClient {
             return Err(anyhow::anyhow!("Failed to get documents: HTTP {} - {}", status, error_text));
         }
 
-        let documents: Vec<crate::commands_simple::Document> = response.json().await?;
+        let documents: Vec<Document> = response.json().await?;
         Ok(documents)
     }
 
@@ -318,7 +366,7 @@ impl SupabaseClient {
         Ok(response.status().is_success())
     }
 
-    pub async fn sync_patients(&self, patients: &[crate::commands_simple::Patient]) -> Result<SyncStatus> {
+    pub async fn sync_patients(&self, patients: &[Patient]) -> Result<SyncStatus> {
         let mut status = SyncStatus {
             last_sync: Some(chrono::Utc::now().to_rfc3339()),
             status: "syncing".to_string(),
@@ -346,7 +394,7 @@ impl SupabaseClient {
         Ok(status)
     }
 
-    async fn sync_single_patient(&self, url: &str, patient: &crate::commands_simple::Patient) -> Result<()> {
+    async fn sync_single_patient(&self, url: &str, patient: &Patient) -> Result<()> {
         let response = self.client
             .post(url)
             .header("apikey", &self.config.anon_key)
@@ -366,7 +414,7 @@ impl SupabaseClient {
         Ok(())
     }
 
-    pub async fn sync_appointments(&self, appointments: &[crate::commands_simple::Appointment]) -> Result<SyncStatus> {
+    pub async fn sync_appointments(&self, appointments: &[Appointment]) -> Result<SyncStatus> {
         let mut status = SyncStatus {
             last_sync: Some(chrono::Utc::now().to_rfc3339()),
             status: "syncing".to_string(),
@@ -394,7 +442,7 @@ impl SupabaseClient {
         Ok(status)
     }
 
-    async fn sync_single_appointment(&self, url: &str, appointment: &crate::commands_simple::Appointment) -> Result<()> {
+    async fn sync_single_appointment(&self, url: &str, appointment: &Appointment) -> Result<()> {
         let response = self.client
             .post(url)
             .header("apikey", &self.config.anon_key)
@@ -414,7 +462,7 @@ impl SupabaseClient {
         Ok(())
     }
 
-    pub async fn get_remote_patients(&self) -> Result<Vec<crate::commands_simple::Patient>> {
+    pub async fn get_remote_patients(&self) -> Result<Vec<Patient>> {
         let url = format!("{}/rest/v1/patients", self.config.url);
         let response = self.client
             .get(&url)
@@ -429,11 +477,11 @@ impl SupabaseClient {
             return Err(anyhow::anyhow!("HTTP {}: {}", status, error_text));
         }
 
-        let patients: Vec<crate::commands_simple::Patient> = response.json().await?;
+        let patients: Vec<Patient> = response.json().await?;
         Ok(patients)
     }
 
-    pub async fn get_remote_appointments(&self) -> Result<Vec<crate::commands_simple::Appointment>> {
+    pub async fn get_remote_appointments(&self) -> Result<Vec<Appointment>> {
         let url = format!("{}/rest/v1/appointments", self.config.url);
         let response = self.client
             .get(&url)
@@ -448,7 +496,7 @@ impl SupabaseClient {
             return Err(anyhow::anyhow!("HTTP {}: {}", status, error_text));
         }
 
-        let appointments: Vec<crate::commands_simple::Appointment> = response.json().await?;
+        let appointments: Vec<Appointment> = response.json().await?;
         Ok(appointments)
     }
 }

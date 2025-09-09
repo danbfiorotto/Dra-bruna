@@ -5,6 +5,16 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
+-- Sequência global de revisões para sincronização híbrida
+CREATE SEQUENCE IF NOT EXISTS public.rev_seq START 1;
+
+-- Função para obter próximo rev
+CREATE OR REPLACE FUNCTION get_next_rev() RETURNS BIGINT AS $$
+BEGIN
+    RETURN nextval('public.rev_seq');
+END;
+$$ LANGUAGE plpgsql;
+
 -- Create custom types
 CREATE TYPE user_role AS ENUM ('admin', 'doctor', 'nurse', 'receptionist');
 CREATE TYPE appointment_status AS ENUM ('scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show');
@@ -33,7 +43,12 @@ CREATE TABLE public.patients (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     synced_at TIMESTAMP WITH TIME ZONE,
-    sync_status sync_status DEFAULT 'pending'
+    sync_status sync_status DEFAULT 'pending',
+    -- Campos de sincronização híbrida
+    rev BIGINT DEFAULT 0 NOT NULL,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    last_editor TEXT,
+    last_pulled_rev BIGINT DEFAULT 0
 );
 
 -- Appointments table
@@ -47,7 +62,12 @@ CREATE TABLE public.appointments (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     synced_at TIMESTAMP WITH TIME ZONE,
-    sync_status sync_status DEFAULT 'pending'
+    sync_status sync_status DEFAULT 'pending',
+    -- Campos de sincronização híbrida
+    rev BIGINT DEFAULT 0 NOT NULL,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    last_editor TEXT,
+    last_pulled_rev BIGINT DEFAULT 0
 );
 
 -- Documents table
@@ -62,7 +82,12 @@ CREATE TABLE public.documents (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     synced_at TIMESTAMP WITH TIME ZONE,
-    sync_status sync_status DEFAULT 'pending'
+    sync_status sync_status DEFAULT 'pending',
+    -- Campos de sincronização híbrida
+    rev BIGINT DEFAULT 0 NOT NULL,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    last_editor TEXT,
+    last_pulled_rev BIGINT DEFAULT 0
 );
 
 -- Document content table (encrypted)
@@ -105,17 +130,29 @@ CREATE INDEX idx_patients_name ON public.patients(name);
 CREATE INDEX idx_patients_email ON public.patients(email);
 CREATE INDEX idx_patients_sync_status ON public.patients(sync_status);
 CREATE INDEX idx_patients_updated_at ON public.patients(updated_at);
+-- Índices para sincronização híbrida
+CREATE INDEX idx_patients_rev ON public.patients(rev);
+CREATE INDEX idx_patients_deleted_at ON public.patients(deleted_at);
+CREATE INDEX idx_patients_last_editor ON public.patients(last_editor);
 
 CREATE INDEX idx_appointments_date ON public.appointments(date);
 CREATE INDEX idx_appointments_patient_id ON public.appointments(patient_id);
 CREATE INDEX idx_appointments_status ON public.appointments(status);
 CREATE INDEX idx_appointments_sync_status ON public.appointments(sync_status);
 CREATE INDEX idx_appointments_updated_at ON public.appointments(updated_at);
+-- Índices para sincronização híbrida
+CREATE INDEX idx_appointments_rev ON public.appointments(rev);
+CREATE INDEX idx_appointments_deleted_at ON public.appointments(deleted_at);
+CREATE INDEX idx_appointments_last_editor ON public.appointments(last_editor);
 
 CREATE INDEX idx_documents_patient_id ON public.documents(patient_id);
 CREATE INDEX idx_documents_appointment_id ON public.documents(appointment_id);
 CREATE INDEX idx_documents_sync_status ON public.documents(sync_status);
 CREATE INDEX idx_documents_updated_at ON public.documents(updated_at);
+-- Índices para sincronização híbrida
+CREATE INDEX idx_documents_rev ON public.documents(rev);
+CREATE INDEX idx_documents_deleted_at ON public.documents(deleted_at);
+CREATE INDEX idx_documents_last_editor ON public.documents(last_editor);
 
 CREATE INDEX idx_audit_logs_user_id ON public.audit_logs(user_id);
 CREATE INDEX idx_audit_logs_created_at ON public.audit_logs(created_at);
@@ -239,6 +276,27 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+-- Função para incrementar rev automaticamente
+CREATE OR REPLACE FUNCTION increment_rev_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.rev = get_next_rev();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Função para converter DELETE em soft delete
+CREATE OR REPLACE FUNCTION soft_delete_trigger()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Em vez de deletar, marca como deleted_at
+    UPDATE public.patients 
+    SET deleted_at = NOW(), rev = get_next_rev()
+    WHERE id = OLD.id;
+    RETURN NULL; -- Cancela o DELETE
+END;
+$$ language 'plpgsql';
+
 -- Triggers for automatic timestamp updates
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -251,6 +309,48 @@ CREATE TRIGGER update_appointments_updated_at BEFORE UPDATE ON public.appointmen
 
 CREATE TRIGGER update_documents_updated_at BEFORE UPDATE ON public.documents
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Triggers para incrementar rev automaticamente
+CREATE TRIGGER increment_patients_rev BEFORE INSERT OR UPDATE ON public.patients
+    FOR EACH ROW EXECUTE FUNCTION increment_rev_column();
+
+CREATE TRIGGER increment_appointments_rev BEFORE INSERT OR UPDATE ON public.appointments
+    FOR EACH ROW EXECUTE FUNCTION increment_rev_column();
+
+CREATE TRIGGER increment_documents_rev BEFORE INSERT OR UPDATE ON public.documents
+    FOR EACH ROW EXECUTE FUNCTION increment_rev_column();
+
+-- Triggers para prevenir hard delete (converter em soft delete)
+CREATE TRIGGER prevent_patients_hard_delete BEFORE DELETE ON public.patients
+    FOR EACH ROW EXECUTE FUNCTION soft_delete_trigger();
+
+-- Função similar para appointments
+CREATE OR REPLACE FUNCTION soft_delete_appointments_trigger()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE public.appointments 
+    SET deleted_at = NOW(), rev = get_next_rev()
+    WHERE id = OLD.id;
+    RETURN NULL;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER prevent_appointments_hard_delete BEFORE DELETE ON public.appointments
+    FOR EACH ROW EXECUTE FUNCTION soft_delete_appointments_trigger();
+
+-- Função similar para documents
+CREATE OR REPLACE FUNCTION soft_delete_documents_trigger()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE public.documents 
+    SET deleted_at = NOW(), rev = get_next_rev()
+    WHERE id = OLD.id;
+    RETURN NULL;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER prevent_documents_hard_delete BEFORE DELETE ON public.documents
+    FOR EACH ROW EXECUTE FUNCTION soft_delete_documents_trigger();
 
 -- Function to handle new user registration
 CREATE OR REPLACE FUNCTION public.handle_new_user()

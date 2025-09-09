@@ -1,20 +1,10 @@
 import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { PatientsService } from '../services/supabase/patients';
+import { Patient } from '../types/patient';
+import { useAuth } from '../hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Search, Edit, Trash2, X } from 'lucide-react';
-
-interface Patient {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  birth_date?: string;
-  address?: string;
-  notes?: string;
-  created_at: string;
-  updated_at: string;
-}
 
 interface CreatePatientRequest {
   name: string;
@@ -26,6 +16,7 @@ interface CreatePatientRequest {
 }
 
 export function Patients() {
+  const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,7 +38,7 @@ export function Patients() {
   const loadPatients = async () => {
     try {
       setLoading(true);
-      const result = await invoke<Patient[]>('db_get_patients');
+      const result = await PatientsService.getPatients();
       setPatients(result);
     } catch (error) {
       console.error('Erro ao carregar pacientes:', error);
@@ -64,7 +55,7 @@ export function Patients() {
 
     try {
       setLoading(true);
-      const result = await invoke<Patient[]>('search_patients', { query });
+      const result = await PatientsService.searchPatients(query);
       setPatients(result);
     } catch (error) {
       console.error('Erro ao pesquisar pacientes:', error);
@@ -82,12 +73,13 @@ export function Patients() {
     e.preventDefault();
     try {
       if (editingPatient) {
-        await invoke('db_update_patient', {
-          id: editingPatient.id,
-          request: formData
-        });
+        await PatientsService.updatePatient(editingPatient.id, formData);
       } else {
-        await invoke('db_create_patient', { request: formData });
+        const patientData = {
+          ...formData,
+          user_id: user?.id || ''
+        };
+        await PatientsService.createPatient(patientData);
       }
       
       setShowForm(false);
@@ -122,7 +114,7 @@ export function Patients() {
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir este paciente?')) {
       try {
-        await invoke('db_delete_patient', { id });
+        await PatientsService.deletePatient(id);
         loadPatients();
       } catch (error) {
         console.error('Erro ao excluir paciente:', error);

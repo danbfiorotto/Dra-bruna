@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { useAuth } from '../hooks/useAuth';
+import { AppointmentsService } from '../services/supabase/appointments';
+import { PatientsService } from '../services/supabase/patients';
+import { Appointment } from '../types/appointment';
+import { Patient } from '../types/patient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,34 +12,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Calendar, Clock, Edit, Trash2, X } from 'lucide-react';
 
-interface Appointment {
-  id: string;
-  patient_id: string;
-  patient_name?: string;
-  date: string;
-  time: string;
-  status: string;
-  notes?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface Patient {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-}
-
 interface CreateAppointmentRequest {
   patient_id: string;
-  date: string;
-  time: string;
-  status: string;
+  appointment_date: string;
+  start_time: string;
+  end_time: string;
+  title: string;
+  status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
   notes?: string;
+  user_id: string;
 }
 
 export function Appointments() {
+  const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,10 +32,13 @@ export function Appointments() {
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [formData, setFormData] = useState<CreateAppointmentRequest>({
     patient_id: '',
-    date: '',
-    time: '',
-    status: 'pendente',
-    notes: ''
+    appointment_date: '',
+    start_time: '',
+    end_time: '',
+    title: '',
+    status: 'scheduled',
+    notes: '',
+    user_id: user?.id || '' // UUID do usuário logado
   });
 
   useEffect(() => {
@@ -57,8 +49,8 @@ export function Appointments() {
   const loadAppointments = async () => {
     try {
       setLoading(true);
-      const result = await invoke('db_get_appointments');
-      setAppointments(result as Appointment[]);
+      const result = await AppointmentsService.getAppointments();
+      setAppointments(result);
     } catch (error) {
       console.error('Erro ao carregar consultas:', error);
     } finally {
@@ -68,8 +60,8 @@ export function Appointments() {
 
   const loadPatients = async () => {
     try {
-      const result = await invoke('db_get_patients');
-      setPatients(result as Patient[]);
+      const result = await PatientsService.getPatients();
+      setPatients(result);
     } catch (error) {
       console.error('Erro ao carregar pacientes:', error);
     }
@@ -77,24 +69,37 @@ export function Appointments() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validar se o usuário está logado
+    if (!user?.id) {
+      console.error('Usuário não está logado');
+      return;
+    }
+    
+    // Garantir que o user_id está definido
+    const appointmentData = {
+      ...formData,
+      user_id: user.id
+    };
+    
     try {
       if (editingAppointment) {
-        await invoke('db_update_appointment', {
-          id: editingAppointment.id,
-          request: formData
-        });
+        await AppointmentsService.updateAppointment(editingAppointment.id, appointmentData);
       } else {
-        await invoke('db_create_appointment', { request: formData });
+        await AppointmentsService.createAppointment(appointmentData);
       }
       
       setShowForm(false);
       setEditingAppointment(null);
       setFormData({
         patient_id: '',
-        date: '',
-        time: '',
-        status: 'pendente',
-        notes: ''
+        appointment_date: '',
+        start_time: '',
+        end_time: '',
+        title: '',
+        status: 'scheduled',
+        notes: '',
+        user_id: user?.id || ''
       });
       loadAppointments();
     } catch (error) {
@@ -106,10 +111,13 @@ export function Appointments() {
     setEditingAppointment(appointment);
     setFormData({
       patient_id: appointment.patient_id,
-      date: appointment.date,
-      time: appointment.time,
+      appointment_date: appointment.appointment_date,
+      start_time: appointment.start_time,
+      end_time: appointment.end_time,
+      title: appointment.title,
       status: appointment.status,
-      notes: appointment.notes || ''
+      notes: appointment.notes || '',
+      user_id: appointment.user_id
     });
     setShowForm(true);
   };
@@ -117,7 +125,7 @@ export function Appointments() {
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir esta consulta?')) {
       try {
-        await invoke('db_delete_appointment', { id });
+        await AppointmentsService.deleteAppointment(id);
         loadAppointments();
       } catch (error) {
         console.error('Erro ao excluir consulta:', error);
@@ -130,10 +138,13 @@ export function Appointments() {
     setEditingAppointment(null);
     setFormData({
       patient_id: '',
-      date: '',
-      time: '',
-      status: 'pendente',
-      notes: ''
+      appointment_date: '',
+      start_time: '',
+      end_time: '',
+      title: '',
+      status: 'scheduled',
+      notes: '',
+      user_id: user?.id || ''
     });
   };
 
@@ -211,16 +222,17 @@ export function Appointments() {
                   <Label htmlFor="status">Status</Label>
                   <Select
                     value={formData.status}
-                    onValueChange={(value) => setFormData({ ...formData, status: value })}
+                    onValueChange={(value) => setFormData({ ...formData, status: value as 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' })}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pendente">Pendente</SelectItem>
-                      <SelectItem value="confirmada">Confirmada</SelectItem>
-                      <SelectItem value="realizada">Realizada</SelectItem>
-                      <SelectItem value="cancelada">Cancelada</SelectItem>
+                      <SelectItem value="scheduled">Agendada</SelectItem>
+                      <SelectItem value="confirmed">Confirmada</SelectItem>
+                      <SelectItem value="completed">Realizada</SelectItem>
+                      <SelectItem value="cancelled">Cancelada</SelectItem>
+                      <SelectItem value="no_show">Não compareceu</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -230,8 +242,8 @@ export function Appointments() {
                   <Input
                     id="date"
                     type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    value={formData.appointment_date}
+                    onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value })}
                     required
                   />
                 </div>
@@ -241,8 +253,8 @@ export function Appointments() {
                   <Input
                     id="time"
                     type="time"
-                    value={formData.time}
-                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                    value={formData.start_time}
+                    onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
                     required
                   />
                 </div>
@@ -297,16 +309,16 @@ export function Appointments() {
                         </div>
                         <div className="flex-1">
                           <h3 className="font-medium text-gray-900">
-                            {appointment.patient_name || `Paciente ID: ${appointment.patient_id}`}
+                            {appointment.patient?.name || `Paciente ID: ${appointment.patient_id}`}
                           </h3>
                           <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
                             <span className="flex items-center">
                               <Calendar className="h-4 w-4 mr-1" />
-                              {new Date(appointment.date).toLocaleDateString('pt-BR')}
+                              {new Date(appointment.appointment_date).toLocaleDateString('pt-BR')}
                             </span>
                             <span className="flex items-center">
                               <Clock className="h-4 w-4 mr-1" />
-                              {appointment.time}
+                              {appointment.start_time}
                             </span>
                           </div>
                           {appointment.notes && (
