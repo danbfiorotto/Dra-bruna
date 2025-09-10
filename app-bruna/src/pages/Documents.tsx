@@ -65,21 +65,13 @@ export function Documents() {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result as string;
-        // Remove data URL prefix to get base64 content
-        const base64Content = content.split(',')[1] || content;
-        
-        setFormData({
-          ...formData,
-          filename: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          content: base64Content
-        });
-      };
-      reader.readAsDataURL(file);
+      setFormData({
+        ...formData,
+        filename: file.name,
+        file_type: file.type,
+        file_size: file.size,
+        content: '' // Não precisamos mais do base64
+      });
     }
   };
 
@@ -91,23 +83,32 @@ export function Documents() {
       console.error('Usuário não está logado');
       return;
     }
+
+    // Validar se um arquivo foi selecionado
+    const fileInput = document.getElementById('file') as HTMLInputElement;
+    const file = fileInput?.files?.[0];
+    if (!file) {
+      alert('Por favor, selecione um arquivo');
+      return;
+    }
     
     try {
-      // Para simplificar, vamos criar um documento básico sem upload de arquivo
-      const documentData = {
-        patient_id: formData.patient_id,
-        title: formData.filename,
-        file_name: formData.filename,
-        file_path: `documents/${formData.patient_id}/${formData.filename}`,
-        storage_path: `documents/${formData.patient_id}/${formData.filename}`,
-        file_size: formData.file_size || 0,
-        mime_type: formData.file_type || 'text/plain',
-        encrypted: false,
-        user_id: user.id // UUID do usuário logado
-      };
+      console.log('📤 Iniciando upload do documento:', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        patientId: formData.patient_id
+      });
+
+      // Usar o serviço de upload que salva no Supabase Storage
+      await DocumentsService.uploadDocument(
+        file,
+        formData.patient_id,
+        formData.appointment_id || undefined,
+        user.id
+      );
       
-      // Usar o serviço de documentos
-      await DocumentsService.createDocument(documentData);
+      console.log('✅ Documento enviado com sucesso!');
       
       setShowForm(false);
       setFormData({
@@ -118,9 +119,16 @@ export function Documents() {
         file_size: 0,
         content: ''
       });
+      
+      // Limpar o input de arquivo
+      if (fileInput) {
+        fileInput.value = '';
+      }
+      
       loadDocuments();
     } catch (error) {
-      console.error('Erro ao salvar documento:', error);
+      console.error('❌ Erro ao enviar documento:', error);
+      alert('Erro ao enviar documento. Verifique o console para mais detalhes.');
     }
   };
 
@@ -137,11 +145,33 @@ export function Documents() {
 
   const handleDownload = async (document: Document) => {
     try {
-      // Para simplificar, vamos apenas mostrar uma mensagem
-      // Em uma implementação real, você usaria DocumentsService.downloadDocument()
-      alert(`Download do documento ${document.file_name} não implementado ainda.`);
+      if (document.encrypted) {
+        const password = prompt('Este documento está criptografado. Digite a senha:');
+        if (password) {
+          await performDownload(document.id, password);
+        }
+      } else {
+        await performDownload(document.id);
+      }
     } catch (error) {
       console.error('Erro ao baixar documento:', error);
+    }
+  };
+
+  const performDownload = async (documentId: string, password?: string) => {
+    try {
+      const blob = await DocumentsService.downloadDocument(documentId, password);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = documents.find(d => d.id === documentId)?.file_name || 'documento';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Erro no download:', error);
+      alert('Erro ao baixar documento. Verifique a senha se o documento estiver criptografado.');
     }
   };
 
@@ -252,7 +282,7 @@ export function Documents() {
                 <Button type="button" variant="outline" onClick={handleCancel}>
                   Cancelar
                 </Button>
-                <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={!formData.content}>
+                <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={!formData.patient_id || !formData.filename}>
                   <Upload className="h-4 w-4 mr-2" />
                   Upload Documento
                 </Button>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
+import { PDFGenerator } from '../services/pdfGenerator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,9 +72,28 @@ export function Reports() {
   const handleExportPatients = async () => {
     try {
       setLoading(true);
-      // Implementação simples para sistema online
-      const content = 'Nome,Email,Telefone,Data de Nascimento\nPaciente Teste,teste@email.com,11999999999,01/01/1990';
-      await downloadCSV(content, `pacientes_${new Date().toISOString().split('T')[0]}.csv`);
+      const { data: patients, error } = await supabase
+        .from('patients')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const headers = ['Nome', 'Email', 'Telefone', 'Data de Nascimento', 'Endereço', 'Data de Criação'];
+      const rows = patients?.map(patient => [
+        patient.name || '',
+        patient.email || '',
+        patient.phone || '',
+        patient.birth_date ? new Date(patient.birth_date).toLocaleDateString('pt-BR') : '',
+        patient.address || '',
+        new Date(patient.created_at).toLocaleDateString('pt-BR')
+      ]) || [];
+
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(field => `"${field}"`).join(','))
+        .join('\n');
+
+      await downloadCSV(csvContent, `pacientes_${new Date().toISOString().split('T')[0]}.csv`);
     } catch (error) {
       console.error('Erro ao exportar pacientes:', error);
     } finally {
@@ -84,9 +104,33 @@ export function Reports() {
   const handleExportAppointments = async () => {
     try {
       setLoading(true);
-      // Implementação simples para sistema online
-      const content = 'Data,Hora,Paciente,Status\n01/01/2024,10:00,Paciente Teste,Agendada';
-      await downloadCSV(content, `consultas_${new Date().toISOString().split('T')[0]}.csv`);
+      const { data: appointments, error } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          patients!inner(name, email, phone)
+        `)
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+
+      const headers = ['Data', 'Hora', 'Paciente', 'Email', 'Telefone', 'Status', 'Observações', 'Data de Criação'];
+      const rows = appointments?.map(appointment => [
+        new Date(appointment.date).toLocaleDateString('pt-BR'),
+        appointment.time || '',
+        appointment.patients?.name || '',
+        appointment.patients?.email || '',
+        appointment.patients?.phone || '',
+        appointment.status || '',
+        appointment.notes || '',
+        new Date(appointment.created_at).toLocaleDateString('pt-BR')
+      ]) || [];
+
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(field => `"${field}"`).join(','))
+        .join('\n');
+
+      await downloadCSV(csvContent, `consultas_${new Date().toISOString().split('T')[0]}.csv`);
     } catch (error) {
       console.error('Erro ao exportar consultas:', error);
     } finally {
@@ -97,9 +141,32 @@ export function Reports() {
   const handleExportDocuments = async () => {
     try {
       setLoading(true);
-      // Implementação simples para sistema online
-      const content = 'Nome do Arquivo,Tipo,Tamanho,Paciente\nDocumento Teste.pdf,PDF,1.2 MB,Paciente Teste';
-      await downloadCSV(content, `documentos_${new Date().toISOString().split('T')[0]}.csv`);
+      const { data: documents, error } = await supabase
+        .from('documents')
+        .select(`
+          *,
+          patients!inner(name, email)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const headers = ['Nome do Arquivo', 'Tipo', 'Tamanho', 'Paciente', 'Email', 'Criptografado', 'Data de Criação'];
+      const rows = documents?.map(document => [
+        document.filename || '',
+        document.file_type || '',
+        document.file_size ? `${(document.file_size / 1024 / 1024).toFixed(2)} MB` : '0 MB',
+        document.patients?.name || '',
+        document.patients?.email || '',
+        document.encrypted ? 'Sim' : 'Não',
+        new Date(document.created_at).toLocaleDateString('pt-BR')
+      ]) || [];
+
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(field => `"${field}"`).join(','))
+        .join('\n');
+
+      await downloadCSV(csvContent, `documentos_${new Date().toISOString().split('T')[0]}.csv`);
     } catch (error) {
       console.error('Erro ao exportar documentos:', error);
     } finally {
@@ -110,9 +177,19 @@ export function Reports() {
   const handleExportDailyAppointments = async () => {
     try {
       setLoading(true);
-      // Implementação simples para sistema online
-      const content = `Data,Hora,Paciente,Status\n${selectedDate},10:00,Paciente Teste,Agendada`;
-      await downloadCSV(content, `agenda_${selectedDate}.csv`);
+      const { data: appointments, error } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          patients!inner(name, email, phone)
+        `)
+        .eq('date', selectedDate)
+        .order('time', { ascending: true });
+
+      if (error) throw error;
+
+      // Gerar PDF da agenda do dia
+      await PDFGenerator.generateDailyAppointmentsPDF(appointments || []);
     } catch (error) {
       console.error('Erro ao exportar agenda do dia:', error);
     } finally {

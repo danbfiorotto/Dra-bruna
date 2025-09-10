@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, FileText, Calendar, User, Loader2 } from 'lucide-react';
+import { Plus, Search, FileText, Calendar, User, Loader2, Edit, Trash2 } from 'lucide-react';
 import { useMedicalRecords } from '../hooks/useMedicalRecords';
 import { usePatients } from '../hooks/usePatients';
+import { useAppointments } from '../hooks/useAppointments';
+import { MedicalRecordForm } from '../components/MedicalRecordForm';
+import { MedicalRecord } from '../types/medicalRecord';
 
 export function MedicalRecords() {
   const {
@@ -12,13 +15,20 @@ export function MedicalRecords() {
     isLoading,
     error,
     loadMedicalRecords,
-    searchMedicalRecords
+    createMedicalRecord,
+    updateMedicalRecord,
+    deleteMedicalRecord
   } = useMedicalRecords();
 
   const { patients } = usePatients();
+  const { appointments } = useAppointments();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   useEffect(() => {
     loadMedicalRecords();
@@ -32,7 +42,13 @@ export function MedicalRecords() {
 
     try {
       setIsSearching(true);
-      const results = await searchMedicalRecords(searchTerm);
+      // Busca local nos prontuários carregados
+      const results = medicalRecords.filter(record => 
+        record.anamnesis?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.diagnosis?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.treatment_plan?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.notes?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
       setSearchResults(results);
     } catch (err) {
       console.error('Search failed:', err);
@@ -48,6 +64,51 @@ export function MedicalRecords() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
+  const handleSave = async (data: Partial<MedicalRecord>) => {
+    try {
+      setIsSaving(true);
+      if (editingRecord) {
+        await updateMedicalRecord(editingRecord.id, data);
+      } else {
+        await createMedicalRecord(data as Omit<MedicalRecord, 'id' | 'created_at' | 'updated_at'>);
+      }
+      setLastSaved(new Date());
+      loadMedicalRecords();
+    } catch (error) {
+      console.error('Erro ao salvar prontuário:', error);
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEdit = (record: MedicalRecord) => {
+    setEditingRecord(record);
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este prontuário?')) {
+      try {
+        await deleteMedicalRecord(id);
+        loadMedicalRecords();
+      } catch (error) {
+        console.error('Erro ao excluir prontuário:', error);
+      }
+    }
+  };
+
+  const handleNewRecord = () => {
+    setEditingRecord(null);
+    setShowForm(true);
+  };
+
+  const handleCancel = () => {
+    setShowForm(false);
+    setEditingRecord(null);
+    setLastSaved(null);
   };
 
   if (isLoading) {
@@ -68,6 +129,20 @@ export function MedicalRecords() {
 
   const displayRecords = searchResults.length > 0 ? searchResults : medicalRecords;
 
+  if (showForm) {
+    return (
+      <MedicalRecordForm
+        medicalRecord={editingRecord || undefined}
+        patients={patients}
+        appointments={appointments}
+        onSave={handleSave}
+        onCancel={handleCancel}
+        isSaving={isSaving}
+        lastSaved={lastSaved || undefined}
+      />
+    );
+  }
+
   return (
     <div>
       <div className="mb-8">
@@ -78,7 +153,10 @@ export function MedicalRecords() {
               Gestão de prontuários e histórico médico dos pacientes
             </p>
           </div>
-          <Button className="bg-primary hover:bg-primary/90">
+          <Button 
+            onClick={handleNewRecord}
+            className="bg-primary hover:bg-primary/90"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Novo Prontuário
           </Button>
@@ -139,9 +217,24 @@ export function MedicalRecords() {
                       </span>
                     </CardDescription>
                   </div>
-                  <Button variant="outline" size="sm">
-                    Visualizar
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleEdit(record)}
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Editar
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleDelete(record.id)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

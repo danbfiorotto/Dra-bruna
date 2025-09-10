@@ -142,7 +142,7 @@ export const useAuth = () => {
             .single();
 
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout na consulta de perfil')), 5000)
+            setTimeout(() => reject(new Error('Timeout na consulta de perfil')), 15000)
           );
 
           const { data: profile, error: profileError } = await Promise.race([

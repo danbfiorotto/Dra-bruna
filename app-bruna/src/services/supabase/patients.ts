@@ -63,7 +63,7 @@ export class PatientsService {
     
     return {
       ...data,
-      user_id: data.created_by
+      user_id: data.created_by || ''
     };
   }
 
@@ -89,7 +89,7 @@ export class PatientsService {
     
     return {
       ...data,
-      user_id: data.created_by
+      user_id: data.created_by || ''
     };
   }
 

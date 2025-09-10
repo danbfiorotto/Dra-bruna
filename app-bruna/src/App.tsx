@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { Dashboard } from './pages/Dashboard';
 import { Patients } from './pages/Patients';
 import { Appointments } from './pages/Appointments';
+import { Clinics } from './pages/Clinics';
 import { Documents } from './pages/Documents';
 import { MedicalRecords } from './pages/MedicalRecords';
 import { Financial } from './pages/Financial';
@@ -20,6 +21,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/patients" element={<Patients />} />
           <Route path="/appointments" element={<Appointments />} />
+          <Route path="/clinics" element={<Clinics />} />
           <Route path="/documents" element={<Documents />} />
           <Route path="/medical-records" element={<MedicalRecords />} />
           <Route path="/financial" element={<Financial />} />

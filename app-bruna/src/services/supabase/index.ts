@@ -20,6 +20,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 // Exportar serviços
 export { PatientsService } from './patients';
 export { AppointmentsService } from './appointments';
+export { ClinicsService } from './clinics';
 export { DocumentsService } from './documents';
 export { FinancialService } from './financial';
 export { MedicalRecordsService } from './medicalRecords';
@@ -27,5 +28,4 @@ export { AuditService } from './audit';
 
 // Exportar tipos
 export type { FinancialTransaction, FinancialCategory, MonthlyFinancialSummary } from './financial';
-export type { MedicalRecord } from './medicalRecords';
 export type { AuditLog, AuditLogFilters } from './audit';

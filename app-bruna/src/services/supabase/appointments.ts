@@ -1,32 +1,62 @@
 import { supabase } from '../supabase';
-import { Appointment } from '../../types/appointment';
+import { Appointment, CreateAppointmentData, UpdateAppointmentData } from '../../types/appointment';
 
 export class AppointmentsService {
   // Buscar todos os agendamentos
   static async getAppointments(): Promise<Appointment[]> {
-    const { data, error } = await supabase
+    // Buscar agendamentos
+    const { data: appointments, error: appointmentsError } = await supabase
       .from('appointments')
-      .select(`
-        *,
-        patients!inner(name, phone, email)
-      `)
-      .order('date', { ascending: true })
-      .order('time', { ascending: true });
+      .select('*')
+      .order('appointment_date', { ascending: true })
+      .order('start_time', { ascending: true });
 
-    if (error) throw error;
-    
-    // Transformar para o formato esperado
-    return (data || []).map(appointment => ({
+    if (appointmentsError) {
+      console.error('Erro ao buscar agendamentos:', appointmentsError);
+      throw appointmentsError;
+    }
+
+    if (!appointments || appointments.length === 0) {
+      return [];
+    }
+
+    // Buscar pacientes únicos
+    const patientIds = [...new Set(appointments.map(a => a.patient_id))];
+    const { data: patients, error: patientsError } = await supabase
+      .from('patients')
+      .select('id, name, phone, email')
+      .in('id', patientIds);
+
+    if (patientsError) {
+      console.error('Erro ao buscar pacientes:', patientsError);
+      throw patientsError;
+    }
+
+    // Buscar clínicas únicas
+    const clinicIds = [...new Set(appointments.map(a => a.clinic_id).filter(Boolean))];
+    let clinics: any[] = [];
+    if (clinicIds.length > 0) {
+      const { data: clinicsData, error: clinicsError } = await supabase
+        .from('clinics')
+        .select('id, name')
+        .in('id', clinicIds);
+
+      if (clinicsError) {
+        console.error('Erro ao buscar clínicas:', clinicsError);
+        throw clinicsError;
+      }
+      clinics = clinicsData || [];
+    }
+
+    // Fazer o join manual
+    const appointmentsWithRelations = appointments.map(appointment => ({
       ...appointment,
-      appointment_date: appointment.date,
-      start_time: appointment.time,
-      end_time: appointment.time, // Usar o mesmo horário por enquanto
-      title: `Consulta - ${appointment.patients.name}`,
-      patient_name: appointment.patients.name,
-      patient_phone: appointment.patients.phone,
-      patient_email: appointment.patients.email,
-      user_id: appointment.created_by
+      patient: patients?.find(p => p.id === appointment.patient_id),
+      clinic: clinics?.find(c => c.id === appointment.clinic_id)
     }));
+
+    console.log('Dados processados:', appointmentsWithRelations);
+    return appointmentsWithRelations;
   }
 
   // Buscar agendamentos por data
@@ -35,24 +65,15 @@ export class AppointmentsService {
       .from('appointments')
       .select(`
         *,
-        patients!inner(name, phone, email)
+        patients(id, name, phone, email),
+        clinics(id, name)
       `)
-      .eq('date', date)
-      .order('time', { ascending: true });
+      .eq('appointment_date', date)
+      .order('start_time', { ascending: true });
 
     if (error) throw error;
     
-    return (data || []).map(appointment => ({
-      ...appointment,
-      appointment_date: appointment.date,
-      start_time: appointment.time,
-      end_time: appointment.time,
-      title: `Consulta - ${appointment.patients.name}`,
-      patient_name: appointment.patients.name,
-      patient_phone: appointment.patients.phone,
-      patient_email: appointment.patients.email,
-      user_id: appointment.created_by
-    }));
+    return data || [];
   }
 
   // Buscar agendamentos por paciente
@@ -61,24 +82,15 @@ export class AppointmentsService {
       .from('appointments')
       .select(`
         *,
-        patients!inner(name, phone, email)
+        patients(id, name, phone, email),
+        clinics(id, name)
       `)
       .eq('patient_id', patientId)
-      .order('date', { ascending: false });
+      .order('appointment_date', { ascending: false });
 
     if (error) throw error;
     
-    return (data || []).map(appointment => ({
-      ...appointment,
-      appointment_date: appointment.date,
-      start_time: appointment.time,
-      end_time: appointment.time,
-      title: `Consulta - ${appointment.patients.name}`,
-      patient_name: appointment.patients.name,
-      patient_phone: appointment.patients.phone,
-      patient_email: appointment.patients.email,
-      user_id: appointment.created_by
-    }));
+    return data || [];
   }
 
   // Buscar agendamento por ID
@@ -87,95 +99,84 @@ export class AppointmentsService {
       .from('appointments')
       .select(`
         *,
-        patients!inner(name, phone, email)
+        patients(id, name, phone, email),
+        clinics(id, name)
       `)
       .eq('id', id)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw error;
+    }
     
-    return {
-      ...data,
-      appointment_date: data.date,
-      start_time: data.time,
-      end_time: data.time,
-      title: `Consulta - ${data.patients.name}`,
-      patient_name: data.patients.name,
-      patient_phone: data.patients.phone,
-      patient_email: data.patients.email,
-      user_id: data.created_by
-    };
+    return data;
   }
 
   // Criar novo agendamento
-  static async createAppointment(appointment: Omit<Appointment, 'id' | 'created_at' | 'updated_at' | 'patient_name' | 'patient_phone' | 'patient_email'>): Promise<Appointment> {
-    const appointmentData = {
+  static async createAppointment(appointment: CreateAppointmentData): Promise<Appointment> {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('Usuário não autenticado');
+    }
+
+    // Filtrar campos vazios e preparar dados para inserção
+    const appointmentData: any = {
       patient_id: appointment.patient_id,
-      date: appointment.appointment_date,
-      time: appointment.start_time,
-      status: appointment.status,
-      notes: appointment.notes,
-      created_by: appointment.user_id
+      appointment_date: appointment.appointment_date,
+      start_time: appointment.start_time,
+      title: appointment.title,
+      status: appointment.status || 'scheduled',
+      created_by: user.id
     };
+
+    // Adicionar campos opcionais apenas se não estiverem vazios
+    if (appointment.clinic_id && appointment.clinic_id.trim() !== '') {
+      appointmentData.clinic_id = appointment.clinic_id;
+    }
+    
+    if (appointment.description && appointment.description.trim() !== '') {
+      appointmentData.description = appointment.description;
+    }
+    
+    if (appointment.notes && appointment.notes.trim() !== '') {
+      appointmentData.notes = appointment.notes;
+    }
 
     const { data, error } = await supabase
       .from('appointments')
       .insert(appointmentData)
       .select(`
         *,
-        patients!inner(name, phone, email)
+        patients(id, name, phone, email),
+        clinics(id, name)
       `)
       .single();
 
     if (error) throw error;
     
-    // Transformar para o formato esperado
-    return {
-      ...data,
-      appointment_date: data.date,
-      start_time: data.time,
-      end_time: data.time,
-      title: `Consulta - ${data.patients.name}`,
-      patient_name: data.patients.name,
-      patient_phone: data.patients.phone,
-      patient_email: data.patients.email,
-      user_id: data.created_by
-    };
+    return data;
   }
 
   // Atualizar agendamento
-  static async updateAppointment(id: string, updates: Partial<Appointment>): Promise<Appointment> {
-    const updateData: any = {};
-    if (updates.patient_id) updateData.patient_id = updates.patient_id;
-    if (updates.appointment_date) updateData.date = updates.appointment_date;
-    if (updates.start_time) updateData.time = updates.start_time;
-    if (updates.status) updateData.status = updates.status;
-    if (updates.notes !== undefined) updateData.notes = updates.notes;
-    if (updates.user_id) updateData.updated_by = updates.user_id;
-
+  static async updateAppointment(id: string, updates: UpdateAppointmentData): Promise<Appointment> {
     const { data, error } = await supabase
       .from('appointments')
-      .update(updateData)
+      .update(updates)
       .eq('id', id)
       .select(`
         *,
-        patients!inner(name, phone, email)
+        patients(id, name, phone, email),
+        clinics(id, name)
       `)
       .single();
 
     if (error) throw error;
     
-    return {
-      ...data,
-      appointment_date: data.date,
-      start_time: data.time,
-      end_time: data.time,
-      title: `Consulta - ${data.patients.name}`,
-      patient_name: data.patients.name,
-      patient_phone: data.patients.phone,
-      patient_email: data.patients.email,
-      user_id: data.created_by
-    };
+    return data;
   }
 
   // Deletar agendamento
@@ -201,12 +202,16 @@ export class AppointmentsService {
     const endOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + 6));
 
     const { data, error } = await supabase
-      .from('appointments_with_patient')
-      .select('*')
-      .gte('date', startOfWeek.toISOString().split('T')[0])
-      .lte('date', endOfWeek.toISOString().split('T')[0])
-      .order('date', { ascending: true })
-      .order('time', { ascending: true });
+      .from('appointments')
+      .select(`
+        *,
+        patients(id, name, phone, email),
+        clinics(id, name)
+      `)
+      .gte('appointment_date', startOfWeek.toISOString().split('T')[0])
+      .lte('appointment_date', endOfWeek.toISOString().split('T')[0])
+      .order('appointment_date', { ascending: true })
+      .order('start_time', { ascending: true });
 
     if (error) throw error;
     return data || [];

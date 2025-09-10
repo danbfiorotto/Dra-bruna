@@ -17,12 +17,14 @@ import {
   LogOut,
   User,
   Shield,
+  Building,
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Pacientes', href: '/patients', icon: Users },
   { name: 'Agenda', href: '/appointments', icon: Calendar },
+  { name: 'Clínicas', href: '/clinics', icon: Building },
   { name: 'Documentos', href: '/documents', icon: FolderOpen },
   { name: 'Prontuários', href: '/medical-records', icon: FileText },
   { name: 'Financeiro', href: '/financial', icon: DollarSign },
