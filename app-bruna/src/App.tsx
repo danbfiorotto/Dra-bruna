@@ -9,7 +9,7 @@ import { Documents } from './pages/Documents';
 import { MedicalRecords } from './pages/MedicalRecords';
 import { Financial } from './pages/Financial';
 import { Reports } from './pages/Reports';
-import { Settings } from './pages/Settings';
+import { SettingsPage } from './pages/Settings';
 import { AuditLogs } from './pages/AuditLogs';
 
 function App() {
@@ -26,7 +26,7 @@ function App() {
           <Route path="/medical-records" element={<MedicalRecords />} />
           <Route path="/financial" element={<Financial />} />
           <Route path="/reports" element={<Reports />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/audit-logs" element={<AuditLogs />} />
         </Routes>
       </Layout>

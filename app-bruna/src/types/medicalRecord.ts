@@ -6,6 +6,11 @@ export interface MedicalRecord {
   diagnosis?: string;
   treatment_plan?: string;
   notes?: string;
+  rg?: string;
+  cpf?: string;
+  indication?: string;
+  main_complaint?: string;
+  last_dental_consultation?: string;
   version: number;
   created_at: string;
   updated_at: string;
@@ -20,6 +25,11 @@ export interface CreateMedicalRecordRequest {
   diagnosis?: string;
   treatment_plan?: string;
   notes?: string;
+  rg?: string;
+  cpf?: string;
+  indication?: string;
+  main_complaint?: string;
+  last_dental_consultation?: string;
   created_by?: string;
 }
 
@@ -28,6 +38,11 @@ export interface UpdateMedicalRecordRequest {
   diagnosis?: string;
   treatment_plan?: string;
   notes?: string;
+  rg?: string;
+  cpf?: string;
+  indication?: string;
+  main_complaint?: string;
+  last_dental_consultation?: string;
   updated_by?: string;
 }
 

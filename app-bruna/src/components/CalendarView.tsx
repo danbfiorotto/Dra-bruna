@@ -195,11 +195,34 @@ export function CalendarView({ appointments, onAppointmentClick, onDateClick }: 
     );
   };
 
-  // Renderizar visão da semana
+  // Gerar horários das 7h às 22h
+  const generateTimeSlots = () => {
+    const slots = [];
+    for (let hour = 7; hour <= 22; hour++) {
+      slots.push({
+        hour,
+        time: `${hour.toString().padStart(2, '0')}:00`,
+        display: `${hour.toString().padStart(2, '0')}h`
+      });
+    }
+    return slots;
+  };
+
+  // Obter consultas para um horário específico
+  const getAppointmentsForTimeSlot = (day: Date, timeSlot: { hour: number }) => {
+    const dayAppointments = getAppointmentsForDate(day);
+    return dayAppointments.filter(apt => {
+      const aptHour = parseInt(apt.start_time.split(':')[0]);
+      return aptHour === timeSlot.hour;
+    });
+  };
+
+  // Renderizar visão da semana com grade de horários
   const renderWeekView = () => {
     const weekStart = getWeekStart(currentDate);
     const weekEnd = getWeekEnd(currentDate);
     const weekDays = getWeekDays(weekStart);
+    const timeSlots = generateTimeSlots();
 
     return (
       <div className="space-y-4">
@@ -209,52 +232,83 @@ export function CalendarView({ appointments, onAppointmentClick, onDateClick }: 
           </h2>
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
-          {weekDays.map((day, index) => {
-            const dayAppointments = getAppointmentsForDate(day);
-            const isToday = day.toDateString() === new Date().toDateString();
-            
-            return (
-              <div key={index} className="space-y-2">
-                <div className={`text-center p-3 rounded-lg transition-all duration-200 ${
-                  isToday 
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg' 
-                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                }`}>
-                  <div className="text-sm font-semibold uppercase tracking-wide">
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          {/* Cabeçalho com dias da semana */}
+          <div className="grid grid-cols-8 bg-gray-100 border-b border-gray-200">
+            <div className="p-3 text-center text-sm font-semibold text-gray-600 border-r border-gray-200">
+              Horário
+            </div>
+            {weekDays.map((day, index) => {
+              const isToday = day.toDateString() === new Date().toDateString();
+              return (
+                <div 
+                  key={index} 
+                  className={`p-3 text-center border-r border-gray-200 last:border-r-0 ${
+                    isToday ? 'bg-blue-100 text-blue-800' : 'text-gray-700'
+                  }`}
+                >
+                  <div className="text-xs font-semibold uppercase tracking-wide">
                     {day.toLocaleDateString('pt-BR', { weekday: 'short' })}
                   </div>
-                  <div className="text-xl font-bold mt-1">
+                  <div className="text-lg font-bold mt-1">
                     {day.getDate()}
                   </div>
                 </div>
-                
-                <div className="space-y-2 min-h-[120px]">
-                  {dayAppointments.map((appointment) => (
-                    <div
-                      key={appointment.id}
-                      className={`p-3 text-xs rounded-lg cursor-pointer hover:shadow-md hover:scale-105 transition-all duration-200 border-l-3 ${getStatusColor(appointment.status)}`}
-                      onClick={() => onAppointmentClick(appointment)}
-                    >
-                      <div className="space-y-1">
-                        <div className="font-semibold text-gray-800">{appointment.start_time}</div>
-                        <div className="truncate text-gray-600 font-medium">{appointment.patient?.name || 'Paciente'}</div>
-                        {appointment.clinic && (
-                          <div className="flex items-center space-x-1">
-                            <MapPin className="h-3 w-3 text-gray-400" />
-                            <span className="truncate text-gray-500">{appointment.clinic.name}</span>
-                          </div>
-                        )}
-                        {appointment.title && (
-                          <div className="text-gray-700 font-medium truncate">{appointment.title}</div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+              );
+            })}
+          </div>
+
+          {/* Grade de horários */}
+          <div className="max-h-[600px] overflow-y-auto">
+            {timeSlots.map((timeSlot) => (
+              <div key={timeSlot.hour} className="grid grid-cols-8 border-b border-gray-100 hover:bg-gray-50">
+                {/* Coluna de horário */}
+                <div className="p-2 text-center text-sm font-medium text-gray-600 border-r border-gray-200 bg-gray-50">
+                  {timeSlot.display}
                 </div>
+                
+                {/* Colunas dos dias */}
+                {weekDays.map((day, dayIndex) => {
+                  const appointments = getAppointmentsForTimeSlot(day, timeSlot);
+                  const isToday = day.toDateString() === new Date().toDateString();
+                  
+                  return (
+                    <div 
+                      key={dayIndex}
+                      className={`p-1 border-r border-gray-100 last:border-r-0 min-h-[60px] ${
+                        isToday ? 'bg-blue-50' : 'bg-white'
+                      }`}
+                    >
+                      {appointments.map((appointment) => (
+                        <div
+                          key={appointment.id}
+                          className={`p-2 text-xs rounded cursor-pointer hover:shadow-md transition-all duration-200 border-l-2 ${getStatusColor(appointment.status)}`}
+                          onClick={() => onAppointmentClick(appointment)}
+                        >
+                          <div className="font-semibold text-gray-800 truncate">
+                            {appointment.patient?.name || 'Paciente'}
+                          </div>
+                          {appointment.title && (
+                            <div className="text-gray-600 truncate text-xs">
+                              {appointment.title}
+                            </div>
+                          )}
+                          {appointment.clinic && (
+                            <div className="flex items-center space-x-1 mt-1">
+                              <MapPin className="h-2 w-2 text-gray-400" />
+                              <span className="truncate text-gray-500 text-xs">
+                                {appointment.clinic.name}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -336,29 +390,29 @@ export function CalendarView({ appointments, onAppointmentClick, onDateClick }: 
 
   return (
     <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-slate-50">
-      <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg py-3">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <CardTitle className="flex items-center space-x-2 text-white">
-            <Calendar className="h-5 w-5 md:h-6 md:w-6" />
-            <span className="text-lg md:text-xl font-semibold">Calendário de Consultas</span>
+            <Calendar className="h-4 w-4 md:h-5 md:w-5" />
+            <span className="text-base md:text-lg font-semibold">Calendário de Consultas</span>
           </CardTitle>
           
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             {/* Botões de navegação */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1">
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={goToPrevious}
-                className="bg-white/20 hover:bg-white/30 border-white/30 text-white"
+                className="bg-white/20 hover:bg-white/30 border-white/30 text-white h-8 px-2"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3 w-3" />
               </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={goToToday}
-                className="bg-white/20 hover:bg-white/30 border-white/30 text-white font-medium"
+                className="bg-white/20 hover:bg-white/30 border-white/30 text-white font-medium h-8 px-3 text-xs"
               >
                 Hoje
               </Button>
@@ -366,21 +420,21 @@ export function CalendarView({ appointments, onAppointmentClick, onDateClick }: 
                 variant="outline" 
                 size="sm" 
                 onClick={goToNext}
-                className="bg-white/20 hover:bg-white/30 border-white/30 text-white"
+                className="bg-white/20 hover:bg-white/30 border-white/30 text-white h-8 px-2"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3 w-3" />
               </Button>
             </div>
             
             {/* Seletor de visualização */}
-            <div className="flex border border-white/30 rounded-lg bg-white/10 backdrop-blur-sm">
+            <div className="flex border border-white/30 rounded-md bg-white/10 backdrop-blur-sm">
               {(['day', 'week', 'month'] as ViewMode[]).map((mode) => (
                 <Button
                   key={mode}
                   variant={viewMode === mode ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode(mode)}
-                  className={`rounded-none first:rounded-l-lg last:rounded-r-lg transition-all duration-200 ${
+                  className={`rounded-none first:rounded-l-md last:rounded-r-md transition-all duration-200 h-8 px-3 text-xs ${
                     viewMode === mode 
                       ? 'bg-white text-blue-600 shadow-md' 
                       : 'text-white hover:bg-white/20'

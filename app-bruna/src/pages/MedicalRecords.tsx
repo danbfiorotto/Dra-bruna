@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, FileText, Calendar, User, Loader2, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, FileText, Calendar, User, Loader2, Edit, Trash2, Eye } from 'lucide-react';
 import { useMedicalRecords } from '../hooks/useMedicalRecords';
 import { usePatients } from '../hooks/usePatients';
 import { useAppointments } from '../hooks/useAppointments';
 import { MedicalRecordForm } from '../components/MedicalRecordForm';
+import { UnifiedAnamnesisView } from '../components/UnifiedAnamnesisView';
 import { MedicalRecord } from '../types/medicalRecord';
 
 export function MedicalRecords() {
@@ -27,6 +28,7 @@ export function MedicalRecords() {
   const [isSearching, setIsSearching] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null);
+  const [viewingRecord, setViewingRecord] = useState<MedicalRecord | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
@@ -69,13 +71,15 @@ export function MedicalRecords() {
   const handleSave = async (data: Partial<MedicalRecord>) => {
     try {
       setIsSaving(true);
+      let savedRecord;
       if (editingRecord) {
-        await updateMedicalRecord(editingRecord.id, data);
+        savedRecord = await updateMedicalRecord(editingRecord.id, data);
       } else {
-        await createMedicalRecord(data as Omit<MedicalRecord, 'id' | 'created_at' | 'updated_at'>);
+        savedRecord = await createMedicalRecord(data as Omit<MedicalRecord, 'id' | 'created_at' | 'updated_at'>);
       }
       setLastSaved(new Date());
       loadMedicalRecords();
+      return savedRecord; // Retornar o objeto salvo
     } catch (error) {
       console.error('Erro ao salvar prontuário:', error);
       throw error;
@@ -86,7 +90,14 @@ export function MedicalRecords() {
 
   const handleEdit = (record: MedicalRecord) => {
     setEditingRecord(record);
+    setViewingRecord(null);
     setShowForm(true);
+  };
+
+  const handleView = (record: MedicalRecord) => {
+    setViewingRecord(record);
+    setEditingRecord(null);
+    setShowForm(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -108,6 +119,7 @@ export function MedicalRecords() {
   const handleCancel = () => {
     setShowForm(false);
     setEditingRecord(null);
+    setViewingRecord(null);
     setLastSaved(null);
   };
 
@@ -138,8 +150,126 @@ export function MedicalRecords() {
         onSave={handleSave}
         onCancel={handleCancel}
         isSaving={isSaving}
-        lastSaved={lastSaved || undefined}
       />
+    );
+  }
+
+  if (viewingRecord) {
+    return (
+      <div>
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Visualizar Prontuário</h1>
+              <p className="mt-2 text-gray-600">
+                {getPatientName(viewingRecord.patient_id)} - {formatDate(viewingRecord.created_at)}
+              </p>
+            </div>
+            <div className="flex space-x-2">
+              <Button 
+                variant="outline"
+                onClick={() => handleEdit(viewingRecord)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Editar
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={handleCancel}
+              >
+                Voltar
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {/* Informações do Paciente */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Informações do Paciente
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Nome</label>
+                  <p className="text-sm text-gray-900">{getPatientName(viewingRecord.patient_id)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Data do Prontuário</label>
+                  <p className="text-sm text-gray-900">{formatDate(viewingRecord.created_at)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Versão</label>
+                  <p className="text-sm text-gray-900">{viewingRecord.version}</p>
+                </div>
+                {viewingRecord.rg && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">RG</label>
+                    <p className="text-sm text-gray-900">{viewingRecord.rg}</p>
+                  </div>
+                )}
+                {viewingRecord.cpf && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">CPF</label>
+                    <p className="text-sm text-gray-900">{viewingRecord.cpf}</p>
+                  </div>
+                )}
+                {viewingRecord.indication && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Indicação</label>
+                    <p className="text-sm text-gray-900">{viewingRecord.indication}</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Anamnese Unificada */}
+          <UnifiedAnamnesisView 
+            medicalRecordId={viewingRecord.id} 
+            freeAnamnesis={viewingRecord.anamnesis}
+          />
+
+          {/* Diagnóstico/Tratamento */}
+          {(viewingRecord.diagnosis || viewingRecord.treatment_plan) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Diagnóstico/Tratamento</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {viewingRecord.diagnosis && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Diagnóstico</h4>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{viewingRecord.diagnosis}</p>
+                  </div>
+                )}
+                {viewingRecord.treatment_plan && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Plano de Tratamento</h4>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{viewingRecord.treatment_plan}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Observações */}
+          {viewingRecord.notes && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Observações</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{viewingRecord.notes}</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     );
   }
 
@@ -218,6 +348,14 @@ export function MedicalRecords() {
                     </CardDescription>
                   </div>
                   <div className="flex space-x-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleView(record)}
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      Ver
+                    </Button>
                     <Button 
                       variant="outline" 
                       size="sm"

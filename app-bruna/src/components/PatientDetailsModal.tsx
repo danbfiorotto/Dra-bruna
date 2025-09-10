@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, User, Phone, Mail, Calendar, FileText, Stethoscope, MapPin, Download, Eye, Clock, CreditCard, AlertCircle } from 'lucide-react';
+import { X, User, Phone, Mail, Calendar, FileText, Stethoscope, MapPin, Download, Eye, Clock, CreditCard, AlertCircle, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,9 +16,11 @@ interface PatientDetailsModalProps {
   patient: Patient;
   isOpen: boolean;
   onClose: () => void;
+  onViewMedicalRecord?: (record: MedicalRecord) => void;
+  onEditMedicalRecord?: (record: MedicalRecord) => void;
 }
 
-export function PatientDetailsModal({ patient, isOpen, onClose }: PatientDetailsModalProps) {
+export function PatientDetailsModal({ patient, isOpen, onClose, onViewMedicalRecord, onEditMedicalRecord }: PatientDetailsModalProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
@@ -472,25 +474,51 @@ export function PatientDetailsModal({ patient, isOpen, onClose }: PatientDetails
                     <div className="space-y-3">
                       {medicalRecords.map((record) => (
                         <div key={record.id} className="p-3 border rounded-lg hover:bg-gray-50">
-                          <div className="text-sm text-gray-500 mb-2">
-                            {formatDate(record.created_at)} - Versão {record.version}
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="text-sm text-gray-500">
+                              {formatDate(record.created_at)} - Versão {record.version}
+                            </div>
+                            <div className="flex space-x-2">
+                              {onViewMedicalRecord && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => onViewMedicalRecord(record)}
+                                  className="flex items-center space-x-1"
+                                >
+                                  <Eye className="h-3 w-3" />
+                                  <span>Ver</span>
+                                </Button>
+                              )}
+                              {onEditMedicalRecord && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => onEditMedicalRecord(record)}
+                                  className="flex items-center space-x-1"
+                                >
+                                  <Edit className="h-3 w-3" />
+                                  <span>Editar</span>
+                                </Button>
+                              )}
+                            </div>
                           </div>
                           {record.diagnosis && (
                             <div className="mb-2">
                               <span className="font-medium text-sm">Diagnóstico:</span>
-                              <p className="text-sm text-gray-700 mt-1">{record.diagnosis}</p>
+                              <p className="text-sm text-gray-700 mt-1 line-clamp-2">{record.diagnosis}</p>
                             </div>
                           )}
                           {record.treatment_plan && (
                             <div className="mb-2">
                               <span className="font-medium text-sm">Plano de Tratamento:</span>
-                              <p className="text-sm text-gray-700 mt-1">{record.treatment_plan}</p>
+                              <p className="text-sm text-gray-700 mt-1 line-clamp-2">{record.treatment_plan}</p>
                             </div>
                           )}
                           {record.notes && (
                             <div>
                               <span className="font-medium text-sm">Observações:</span>
-                              <p className="text-sm text-gray-700 mt-1">{record.notes}</p>
+                              <p className="text-sm text-gray-700 mt-1 line-clamp-2">{record.notes}</p>
                             </div>
                           )}
                         </div>

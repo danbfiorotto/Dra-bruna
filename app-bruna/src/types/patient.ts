@@ -6,6 +6,9 @@ export interface Patient {
   birth_date?: string;
   address?: string;
   notes?: string;
+  rg?: string;
+  cpf?: string;
+  indication?: string;
   created_at: string;
   updated_at: string;
   user_id: string;
@@ -18,6 +21,9 @@ export interface CreatePatientData {
   birth_date?: string;
   address?: string;
   notes?: string;
+  rg?: string;
+  cpf?: string;
+  indication?: string;
 }
 
 export interface UpdatePatientData {
@@ -27,4 +33,7 @@ export interface UpdatePatientData {
   birth_date?: string;
   address?: string;
   notes?: string;
+  rg?: string;
+  cpf?: string;
+  indication?: string;
 }

@@ -1,11 +1,15 @@
-import { supabase } from '../../config/supabase';
+import { supabase } from '../supabase';
 import { MedicalRecord, CreateMedicalRecordRequest, UpdateMedicalRecordRequest } from '../../types/medicalRecord';
 
 export class MedicalRecordsService {
   static async getMedicalRecords(): Promise<MedicalRecord[]> {
     const { data, error } = await supabase
       .from('medical_records')
-      .select('*')
+      .select(`
+        *,
+        patient:patients(id, name, phone, email),
+        appointment:appointments(id, appointment_date, start_time)
+      `)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -18,7 +22,11 @@ export class MedicalRecordsService {
   static async getMedicalRecord(id: string): Promise<MedicalRecord | null> {
     const { data, error } = await supabase
       .from('medical_records')
-      .select('*')
+      .select(`
+        *,
+        patient:patients(id, name, phone, email, rg, cpf, indication),
+        appointment:appointments(id, appointment_date, start_time)
+      `)
       .eq('id', id)
       .single();
 
@@ -35,7 +43,11 @@ export class MedicalRecordsService {
   static async getMedicalRecordsByPatient(patientId: string): Promise<MedicalRecord[]> {
     const { data, error } = await supabase
       .from('medical_records')
-      .select('*')
+      .select(`
+        *,
+        patient:patients(id, name, phone, email, rg, cpf, indication),
+        appointment:appointments(id, appointment_date, start_time)
+      `)
       .eq('patient_id', patientId)
       .order('created_at', { ascending: false });
 
@@ -53,10 +65,21 @@ export class MedicalRecordsService {
       throw new Error('Usuário não autenticado');
     }
 
+    // Filtrar campos vazios que podem causar erro de UUID ou data
+    const cleanData = { ...recordData };
+    if (cleanData.appointment_id === '') {
+      delete cleanData.appointment_id;
+    }
+    
+    // Filtrar campos de data vazios
+    if (cleanData.last_dental_consultation === '') {
+      delete cleanData.last_dental_consultation;
+    }
+
     const { data, error } = await supabase
       .from('medical_records')
       .insert([{
-        ...recordData,
+        ...cleanData,
         created_by: user.id
       }])
       .select()
@@ -94,6 +117,13 @@ export class MedicalRecordsService {
   }
 
   static async deleteMedicalRecord(id: string): Promise<void> {
+    // First, delete related anamnesis responses
+    await supabase
+      .from('anamnesis_responses')
+      .delete()
+      .eq('medical_record_id', id);
+
+    // Then delete the medical record
     const { error } = await supabase
       .from('medical_records')
       .delete()
