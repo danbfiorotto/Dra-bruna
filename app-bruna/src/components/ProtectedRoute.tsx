@@ -11,25 +11,24 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
-  console.log('🔍 ProtectedRoute - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
-
+  // Loading otimizado com timeout
   if (isLoading) {
-    console.log('⏳ Mostrando loading...');
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando...</p>
+        </div>
       </div>
     );
   }
 
   if (!isAuthenticated) {
-    console.log('🔐 Mostrando tela de login...');
     return <Login onLoginSuccess={() => {
-      console.log('✅ Login realizado, recarregando página...');
-      window.location.reload();
+      // Não recarregar a página, deixar o React gerenciar o estado
+      console.log('✅ Login realizado com sucesso');
     }} />;
   }
 
-  console.log('✅ Usuário autenticado, mostrando app...');
   return <>{children}</>;
 };

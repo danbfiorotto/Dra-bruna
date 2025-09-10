@@ -43,6 +43,9 @@ export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // Cache local para evitar consultas desnecessárias
+  const [profileCache, setProfileCache] = useState<Map<string, User>>(new Map());
 
   // Load authentication state from Supabase session
   React.useEffect(() => {
@@ -52,8 +55,16 @@ export const useAuth = () => {
       try {
         console.log('🔍 Inicializando autenticação...');
         
-        // Get initial session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        // Get initial session with timeout
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session timeout')), 5000) // Reduzido para 5s
+        );
+        
+        const { data: { session }, error: sessionError } = await Promise.race([
+          sessionPromise,
+          timeoutPromise
+        ]) as any;
         
         if (sessionError) {
           console.error('❌ Erro ao obter sessão:', sessionError);
@@ -68,12 +79,21 @@ export const useAuth = () => {
         if (session?.user && isMounted) {
           console.log('👤 Usuário encontrado na sessão:', session.user);
           
-          // Get user profile
-          const { data: profile, error: profileError } = await supabase
+          // Get user profile with timeout
+          const profilePromise = supabase
             .from('profiles')
-            .select('*')
+            .select('id, email, name, role, active, created_at, updated_at')
             .eq('id', session.user.id)
             .single();
+
+          const profileTimeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Profile timeout')), 3000) // Reduzido para 3s
+          );
+
+          const { data: profile, error: profileError } = await Promise.race([
+            profilePromise,
+            profileTimeoutPromise
+          ]) as any;
 
           if (profileError) {
             console.error('❌ Erro ao obter perfil:', profileError);
@@ -112,15 +132,15 @@ export const useAuth = () => {
 
     initAuth();
 
-    // Timeout de segurança para evitar loading infinito
+    // Timeout de segurança reduzido
     const timeout = setTimeout(() => {
       if (isMounted) {
         console.log('⏰ Timeout de segurança - parando loading');
         setIsLoading(false);
       }
-    }, 10000); // 10 segundos
+    }, 5000); // Reduzido para 5 segundos
 
-    // Listen for auth changes
+    // Listen for auth changes - Otimizado
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
       if (!isMounted) return;
       
@@ -128,29 +148,29 @@ export const useAuth = () => {
       
       if (event === 'SIGNED_IN' && session?.user) {
         console.log('🔐 Processando SIGNED_IN...');
-        console.log('👤 User ID:', session.user.id);
+        
+        // Evitar consulta duplicada se já temos o usuário
+        if (user && user.id === session.user.id) {
+          console.log('✅ Usuário já carregado, pulando consulta');
+          return;
+        }
         
         try {
-          // Get user profile with timeout
-          console.log('🔍 Iniciando consulta ao perfil...');
-          
-          // Criar uma Promise com timeout
+          // Get user profile with timeout reduzido
           const profilePromise = supabase
             .from('profiles')
-            .select('*')
+            .select('id, email, name, role, active, created_at, updated_at')
             .eq('id', session.user.id)
             .single();
 
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout na consulta de perfil')), 15000)
+            setTimeout(() => reject(new Error('Profile timeout')), 2000) // Reduzido para 2s
           );
 
           const { data: profile, error: profileError } = await Promise.race([
             profilePromise,
             timeoutPromise
           ]) as any;
-
-          console.log('📊 Resultado da consulta de perfil:', { profile, profileError });
 
           if (profileError) {
             console.error('❌ Erro ao obter perfil no state change:', profileError);
@@ -161,8 +181,6 @@ export const useAuth = () => {
           }
 
           if (profile && isMounted) {
-            console.log('📋 Perfil obtido no state change:', profile);
-            
             const userData = {
               id: profile.id,
               email: profile.email,
@@ -173,20 +191,13 @@ export const useAuth = () => {
               updated_at: profile.updated_at
             };
             
-            console.log('👤 Dados do usuário a serem definidos:', userData);
-            
             setUser(userData);
             setIsAuthenticated(true);
             setIsLoading(false);
-            console.log('✅ Usuário autenticado via state change - Estados atualizados');
-          } else {
-            console.log('❌ Perfil não encontrado ou componente desmontado');
-            if (isMounted) {
-              setIsLoading(false);
-            }
+            console.log('✅ Usuário autenticado via state change');
           }
         } catch (error) {
-          console.error('❌ Erro geral no processamento SIGNED_IN:', error);
+          console.error('❌ Erro no processamento SIGNED_IN:', error);
           if (isMounted) {
             setIsLoading(false);
           }
@@ -210,17 +221,26 @@ export const useAuth = () => {
     };
   }, []);
 
-  // Login function
+  // Login function - Otimizada
   const login = useCallback(async (email: string, password: string): Promise<LoginResponse | null> => {
     try {
       console.log('🔐 Iniciando login para:', email);
       setIsLoading(true);
       
-      // Sign in with Supabase
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      // Sign in with Supabase com timeout
+      const authPromise = supabase.auth.signInWithPassword({
         email,
         password,
       });
+
+      const authTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Auth timeout')), 5000) // 5s timeout
+      );
+
+      const { data: authData, error: authError } = await Promise.race([
+        authPromise,
+        authTimeoutPromise
+      ]) as any;
 
       if (authError) {
         console.error('❌ Erro de autenticação:', authError);
@@ -234,12 +254,21 @@ export const useAuth = () => {
 
       console.log('✅ Usuário autenticado:', authData.user);
 
-      // Get user profile
-      const { data: profile, error: profileError } = await supabase
+      // Get user profile com timeout
+      const profilePromise = supabase
         .from('profiles')
-        .select('*')
+        .select('id, email, name, role, active, created_at, updated_at')
         .eq('id', authData.user.id)
         .single();
+
+      const profileTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile timeout')), 3000) // 3s timeout
+      );
+
+      const { data: profile, error: profileError } = await Promise.race([
+        profilePromise,
+        profileTimeoutPromise
+      ]) as any;
 
       if (profileError) {
         console.error('❌ Erro ao obter perfil:', profileError);
@@ -250,8 +279,6 @@ export const useAuth = () => {
         console.error('❌ Perfil do usuário não encontrado');
         throw new Error('User profile not found');
       }
-
-      console.log('📋 Perfil obtido:', profile);
 
       const userData: User = {
         id: profile.id,

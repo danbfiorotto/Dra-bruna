@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, FileText, Calendar, User, Loader2, Edit, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, FileText, Calendar, User, Loader2, Edit, Trash2, X } from 'lucide-react';
 import { useMedicalRecords } from '../hooks/useMedicalRecords';
 import { usePatients } from '../hooks/usePatients';
 import { useAppointments } from '../hooks/useAppointments';
@@ -30,7 +30,6 @@ export function MedicalRecords() {
   const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null);
   const [viewingRecord, setViewingRecord] = useState<MedicalRecord | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   useEffect(() => {
     loadMedicalRecords();
@@ -44,13 +43,32 @@ export function MedicalRecords() {
 
     try {
       setIsSearching(true);
-      // Busca local nos prontuários carregados
-      const results = medicalRecords.filter(record => 
-        record.anamnesis?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.diagnosis?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.treatment_plan?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.notes?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const searchLower = searchTerm.toLowerCase().trim();
+      
+      // Busca simplificada: apenas nome, CPF e RG
+      const results = medicalRecords.filter(record => {
+        // Busca nos campos do paciente
+        const patient = patients.find(p => p.id === record.patient_id);
+        if (!patient) return false;
+
+        // Verifica nome do paciente
+        const nameMatch = patient.name?.toLowerCase().includes(searchLower);
+        
+        // Verifica CPF do paciente
+        const patientCpfMatch = patient.cpf?.toLowerCase().includes(searchLower);
+        
+        // Verifica RG do paciente
+        const patientRgMatch = patient.rg?.toLowerCase().includes(searchLower);
+        
+        // Verifica CPF do prontuário
+        const recordCpfMatch = record.cpf?.toLowerCase().includes(searchLower);
+        
+        // Verifica RG do prontuário
+        const recordRgMatch = record.rg?.toLowerCase().includes(searchLower);
+
+        return nameMatch || patientCpfMatch || patientRgMatch || recordCpfMatch || recordRgMatch;
+      });
+      
       setSearchResults(results);
     } catch (err) {
       console.error('Search failed:', err);
@@ -59,9 +77,45 @@ export function MedicalRecords() {
     }
   };
 
+  // Função para limpar a pesquisa
+  const handleClearSearch = () => {
+    setSearchTerm('');
+    setSearchResults([]);
+  };
+
+  // Função para pesquisa em tempo real com debounce
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
+    if (value.trim() === '') {
+      setSearchResults([]);
+    }
+  }, []);
+
+  // Debounce para pesquisa automática
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      handleSearch();
+    }, 300); // 300ms de delay
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, handleSearch]);
+
   const getPatientName = (patientId: string) => {
     const patient = patients.find(p => p.id === patientId);
     return patient ? patient.name : 'Paciente não encontrado';
+  };
+
+  // Função para destacar termos de busca
+  const highlightSearchTerm = (text: string, searchTerm: string) => {
+    if (!searchTerm.trim() || !text) return text;
+    
+    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return text.replace(regex, '<mark class="bg-yellow-200 px-1 rounded">$1</mark>');
   };
 
   const formatDate = (dateString: string) => {
@@ -77,7 +131,6 @@ export function MedicalRecords() {
       } else {
         savedRecord = await createMedicalRecord(data as Omit<MedicalRecord, 'id' | 'created_at' | 'updated_at'>);
       }
-      setLastSaved(new Date());
       loadMedicalRecords();
       return savedRecord; // Retornar o objeto salvo
     } catch (error) {
@@ -120,7 +173,6 @@ export function MedicalRecords() {
     setShowForm(false);
     setEditingRecord(null);
     setViewingRecord(null);
-    setLastSaved(null);
   };
 
   if (isLoading) {
@@ -139,7 +191,6 @@ export function MedicalRecords() {
     );
   }
 
-  const displayRecords = searchResults.length > 0 ? searchResults : medicalRecords;
 
   if (showForm) {
     return (
@@ -299,14 +350,22 @@ export function MedicalRecords() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Buscar por anamnese, diagnóstico, plano de tratamento..."
+              placeholder="Buscar por nome do paciente, CPF ou RG..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              className="pl-10"
+              className="pl-10 pr-10"
             />
+            {searchTerm && (
+              <button
+                onClick={handleClearSearch}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
-          <Button onClick={handleSearch} disabled={isSearching}>
+          <Button onClick={handleSearch} disabled={isSearching || !searchTerm.trim()}>
             {isSearching ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -314,97 +373,105 @@ export function MedicalRecords() {
             )}
           </Button>
         </div>
+        {searchResults.length > 0 && (
+          <div className="mt-2 text-sm text-gray-600">
+            <span className="font-medium">{searchResults.length}</span> prontuário(s) encontrado(s) para "<span className="font-medium">{searchTerm}</span>"
+          </div>
+        )}
+        {searchTerm && searchResults.length === 0 && (
+          <div className="mt-2 text-sm text-red-600">
+            Nenhum prontuário encontrado para "<span className="font-medium">{searchTerm}</span>"
+          </div>
+        )}
       </div>
 
       {/* Records List */}
       <div className="space-y-4">
-        {displayRecords.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-8">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">
-                {searchTerm ? 'Nenhum prontuário encontrado para a busca' : 'Nenhum prontuário cadastrado'}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          displayRecords.map((record) => (
-            <Card key={record.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
+        {searchTerm.trim() ? (
+          // Quando há pesquisa ativa, mostra apenas os resultados ou área vazia
+          searchResults.length === 0 ? (
+            // Área completamente em branco quando não há resultados da pesquisa
+            <div></div>
+          ) : (
+            // Mostra apenas os cards dos resultados da pesquisa
+            searchResults.map((record) => (
+            <Card key={record.id} className="hover:shadow-md transition-shadow border border-gray-200">
+              <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <User className="h-5 w-5" />
-                      {getPatientName(record.patient_id)}
+                  <div className="flex-1">
+                    <CardTitle className="flex items-center gap-2 text-base font-medium text-gray-800">
+                      <User className="h-4 w-4 text-gray-600" />
+                      <span dangerouslySetInnerHTML={{ 
+                        __html: highlightSearchTerm(getPatientName(record.patient_id), searchTerm) 
+                      }} />
                     </CardTitle>
-                    <CardDescription className="flex items-center gap-4 mt-2">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {formatDate(record.created_at)}
-                      </span>
-                      <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                        Versão {record.version}
-                      </span>
+                    <CardDescription className="flex items-center gap-1 mt-2 text-sm text-gray-500">
+                      <Calendar className="h-3 w-3" />
+                      {(() => {
+                        const patient = patients.find(p => p.id === record.patient_id);
+                        return patient?.birth_date ? formatDate(patient.birth_date) : 'Data não informada';
+                      })()}
                     </CardDescription>
                   </div>
-                  <div className="flex space-x-2">
+                  
+                  {/* Botões de ação no lado direito */}
+                  <div className="flex space-x-1 ml-4">
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={() => handleView(record)}
+                      className="w-12 h-7 text-xs px-2 border-gray-300 hover:bg-gray-50"
                     >
-                      <Eye className="h-4 w-4 mr-1" />
                       Ver
                     </Button>
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={() => handleEdit(record)}
+                      className="w-12 h-7 text-xs px-2 border-gray-300 hover:bg-gray-50"
                     >
-                      <Edit className="h-4 w-4 mr-1" />
                       Editar
                     </Button>
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={() => handleDelete(record.id)}
-                      className="text-red-600 hover:text-red-700"
+                      className="w-12 h-7 text-xs px-2 border-gray-300 hover:bg-red-50 text-red-600 hover:text-red-700"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              
+              <CardContent className="pt-0 pb-4">
                 <div className="space-y-3">
-                  {record.anamnesis && (
+                  {(record.diagnosis || record.treatment_plan) && (
                     <div>
-                      <h4 className="font-medium text-sm text-gray-700 mb-1">Anamnese</h4>
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {record.anamnesis}
-                      </p>
+                      <h4 className="font-medium text-sm text-gray-700 mb-1 flex items-center gap-1">
+                        <span>🩺</span> Diagnóstico / <span>💊</span> Plano de Tratamento
+                      </h4>
+                      <div className="space-y-1">
+                        {record.diagnosis && (
+                          <p className="text-sm text-gray-500 line-clamp-1">
+                            {record.diagnosis}
+                          </p>
+                        )}
+                        {record.treatment_plan && (
+                          <p className="text-sm text-gray-500 line-clamp-1">
+                            {record.treatment_plan}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
-                  {record.diagnosis && (
-                    <div>
-                      <h4 className="font-medium text-sm text-gray-700 mb-1">Diagnóstico</h4>
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {record.diagnosis}
-                      </p>
-                    </div>
-                  )}
-                  {record.treatment_plan && (
-                    <div>
-                      <h4 className="font-medium text-sm text-gray-700 mb-1">Plano de Tratamento</h4>
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {record.treatment_plan}
-                      </p>
-                    </div>
-                  )}
+                  
                   {record.notes && (
                     <div>
-                      <h4 className="font-medium text-sm text-gray-700 mb-1">Observações</h4>
-                      <p className="text-sm text-gray-600 line-clamp-2">
+                      <h4 className="font-medium text-sm text-gray-700 mb-1 flex items-center gap-1">
+                        <span>📋</span> Observações
+                      </h4>
+                      <p className="text-sm text-gray-500 line-clamp-2">
                         {record.notes}
                       </p>
                     </div>
@@ -412,7 +479,105 @@ export function MedicalRecords() {
                 </div>
               </CardContent>
             </Card>
-          ))
+            ))
+          )
+        ) : (
+          // Quando não há pesquisa, mostra todos os prontuários ou mensagem de vazio
+          medicalRecords.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-8">
+                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">Nenhum prontuário cadastrado</p>
+              </CardContent>
+            </Card>
+          ) : (
+            medicalRecords.map((record) => (
+            <Card key={record.id} className="hover:shadow-md transition-shadow border border-gray-200">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="flex items-center gap-2 text-base font-medium text-gray-800">
+                      <User className="h-4 w-4 text-gray-600" />
+                      <span dangerouslySetInnerHTML={{ 
+                        __html: highlightSearchTerm(getPatientName(record.patient_id), searchTerm) 
+                      }} />
+                    </CardTitle>
+                    <CardDescription className="flex items-center gap-1 mt-2 text-sm text-gray-500">
+                      <Calendar className="h-3 w-3" />
+                      {(() => {
+                        const patient = patients.find(p => p.id === record.patient_id);
+                        return patient?.birth_date ? formatDate(patient.birth_date) : 'Data não informada';
+                      })()}
+                    </CardDescription>
+                  </div>
+                  
+                  {/* Botões de ação no lado direito */}
+                  <div className="flex space-x-1 ml-4">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleView(record)}
+                      className="w-12 h-7 text-xs px-2 border-gray-300 hover:bg-gray-50"
+                    >
+                      Ver
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleEdit(record)}
+                      className="w-12 h-7 text-xs px-2 border-gray-300 hover:bg-gray-50"
+                    >
+                      Editar
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleDelete(record.id)}
+                      className="w-12 h-7 text-xs px-2 border-gray-300 hover:bg-red-50 text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              
+              <CardContent className="pt-0 pb-4">
+                <div className="space-y-3">
+                  {(record.diagnosis || record.treatment_plan) && (
+                    <div>
+                      <h4 className="font-medium text-sm text-gray-700 mb-1 flex items-center gap-1">
+                        <span>🩺</span> Diagnóstico / <span>💊</span> Plano de Tratamento
+                      </h4>
+                      <div className="space-y-1">
+                        {record.diagnosis && (
+                          <p className="text-sm text-gray-500 line-clamp-1">
+                            {record.diagnosis}
+                          </p>
+                        )}
+                        {record.treatment_plan && (
+                          <p className="text-sm text-gray-500 line-clamp-1">
+                            {record.treatment_plan}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {record.notes && (
+                    <div>
+                      <h4 className="font-medium text-sm text-gray-700 mb-1 flex items-center gap-1">
+                        <span>📋</span> Observações
+                      </h4>
+                      <p className="text-sm text-gray-500 line-clamp-2">
+                        {record.notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+            ))
+          )
         )}
       </div>
     </div>
