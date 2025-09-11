@@ -32,25 +32,68 @@
   * {
     @apply border-border;
   }
+
+  html, body {
+    width: 100%;
+    min-height: 100vh;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter', system-ui, sans-serif;
   }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Poppins', system-ui, sans-serif;
+  }
+
+  #root {
+    width: 100%;
+    min-height: 100vh;
   }
 }
 
 @layer components {
   .container {
-    @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+    @apply mx-auto max-w-8xl px-4; /* mais espaço horizontal */
   }
-  
+
   .section-padding {
     @apply py-16 sm:py-20 lg:py-24;
   }
-  
+
   .text-balance {
     text-wrap: balance;
+  }
+
+  .app-container {
+    width: 100%;
+    height: 100vh;
+    overflow-x: hidden; /* evita scroll lateral */
+    overflow-y: auto;
+  }
+
+  /* Espaçamento padrão para todos os CardContent */
+  .card-content {
+    @apply px-6 py-5;
+  }
+
+  /* Scrollbar customizada */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
   }
 }

@@ -10,7 +10,7 @@
   "identifier": "com.drabruna.clinic",
   "app": {
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
     },
     "windows": [
       {
@@ -19,14 +19,14 @@
         "title": "Sistema Dra. Bruna",
         "width": 1200,
         "height": 800,
-        "minWidth": 800,
-        "minHeight": 600
+        "minWidth":1024,
+        "minHeight": 700
       }
     ]
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["msi"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
