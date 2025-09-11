@@ -15,7 +15,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { CalendarView } from '../components/CalendarView';
 import { PatientDetailsModal } from '../components/PatientDetailsModal';
 import { useAppKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
-import { Plus, Calendar, Edit, Trash2, X, List, Grid, Search, Printer, User } from 'lucide-react';
+import {
+  Plus, Calendar, Edit, Trash2, X, List, Grid, Search, Printer, User
+} from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 interface CreateAppointmentRequest {
   patient_id: string;
@@ -48,7 +51,7 @@ export function Appointments() {
     title: '',
     status: 'scheduled',
     notes: '',
-    user_id: user?.id || '' // UUID do usuário logado
+    user_id: user?.id || ''
   });
 
   useEffect(() => {
@@ -89,36 +92,34 @@ export function Appointments() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validar se o usuário está logado
+
     if (!user?.id) {
       console.error('Usuário não está logado');
       return;
     }
-    
-    // Validar campos obrigatórios
+
     if (!formData.patient_id || !formData.appointment_date || !formData.start_time || !formData.title) {
       alert('Por favor, preencha todos os campos obrigatórios');
       return;
     }
-    
-    // Garantir que o user_id está definido
+
     const appointmentData = {
       ...formData,
       user_id: user.id
     };
-    
+
     try {
       if (editingAppointment) {
         await AppointmentsService.updateAppointment(editingAppointment.id, appointmentData);
       } else {
         await AppointmentsService.createAppointment(appointmentData);
       }
-      
+
       setShowForm(false);
       setEditingAppointment(null);
       setFormData({
         patient_id: '',
+        clinic_id: '',
         appointment_date: '',
         start_time: '',
         title: '',
@@ -161,22 +162,20 @@ export function Appointments() {
   const handleCancel = () => {
     setShowForm(false);
     setEditingAppointment(null);
-      setFormData({
-        patient_id: '',
-        clinic_id: '',
-        appointment_date: '',
-        start_time: '',
-        title: '',
-        status: 'scheduled',
-        notes: '',
-        user_id: user?.id || ''
-      });
+    setFormData({
+      patient_id: '',
+      clinic_id: '',
+      appointment_date: '',
+      start_time: '',
+      title: '',
+      status: 'scheduled',
+      notes: '',
+      user_id: user?.id || ''
+    });
   };
 
   const handleAppointmentClick = (appointment: Appointment) => {
-    // Mostrar detalhes do paciente ao invés de editar
     if (appointment.patient) {
-      // Converter o tipo do paciente para o formato esperado
       const patient: Patient = {
         id: appointment.patient.id,
         name: appointment.patient.name,
@@ -201,10 +200,7 @@ export function Appointments() {
 
   const handleDateClick = (date: Date) => {
     const dateStr = date.toISOString().split('T')[0];
-    setFormData(prev => ({
-      ...prev,
-      appointment_date: dateStr
-    }));
+    setFormData(prev => ({ ...prev, appointment_date: dateStr }));
     setShowForm(true);
   };
 
@@ -214,119 +210,97 @@ export function Appointments() {
     onSearchPatient: () => setSearchVisible(!searchVisible),
     onGlobalSearch: () => setSearchVisible(!searchVisible),
     onPrintAgenda: () => window.print(),
-    onSave: showForm ? () => handleSubmit({} as React.FormEvent) : undefined,
+    onSave: showForm ? (evt?: any) => handleSubmit(evt ?? ({ preventDefault: () => {} } as unknown as React.FormEvent)) : undefined,
     onCancel: showForm ? handleCancel : undefined,
     enabled: true
   });
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'scheduled':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'confirmed':
-        return 'bg-green-100 text-green-800';
-      case 'completed':
-        return 'bg-blue-100 text-blue-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      case 'no_show':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'scheduled': return 'bg-yellow-100 text-yellow-800';
+      case 'confirmed': return 'bg-green-100 text-green-800';
+      case 'completed': return 'bg-blue-100 text-blue-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      case 'no_show': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'scheduled':
-        return 'Agendada';
-      case 'confirmed':
-        return 'Confirmada';
-      case 'completed':
-        return 'Realizada';
-      case 'cancelled':
-        return 'Cancelada';
-      case 'no_show':
-        return 'Não compareceu';
-      default:
-        return status;
+      case 'scheduled': return 'Agendada';
+      case 'confirmed': return 'Confirmada';
+      case 'completed': return 'Realizada';
+      case 'cancelled': return 'Cancelada';
+      case 'no_show': return 'Não compareceu';
+      default: return status;
     }
   };
 
   return (
     <div>
+      {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Agenda</h1>
-            <p className="mt-2 text-gray-600">
-              Gerencie a agenda de consultas da clínica
-            </p>
+            <p className="mt-2 text-gray-600">Gerencie a agenda de consultas da clínica</p>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="flex border rounded-lg">
-              <Button
-                variant={viewMode === 'calendar' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('calendar')}
-                className="rounded-r-none"
+
+          <div className="flex items-center gap-2">
+            {/* Toggle Calendário / Lista */}
+            <ToggleGroup
+              type="single"
+              value={viewMode}
+              onValueChange={(val) => val && setViewMode(val as 'calendar' | 'list')}
+              className="flex border rounded-md overflow-hidden"
+            >
+              <ToggleGroupItem
+                value="calendar"
+                className="flex items-center gap-1.5 px-3 h-8 text-sm 
+                          data-[state=on]:bg-primary data-[state=on]:text-white 
+                          data-[state=on]:shadow-none data-[state=on]:scale-100"
               >
-                <Grid className="h-4 w-4 mr-2" />
+                <Grid className="h-3.5 w-3.5" />
                 Calendário
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-                className="rounded-l-none"
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="list"
+                className="flex items-center gap-1.5 px-3 h-8 text-sm 
+                          data-[state=on]:bg-primary data-[state=on]:text-white 
+                          data-[state=on]:shadow-none data-[state=on]:scale-100"
               >
-                <List className="h-4 w-4 mr-2" />
+                <List className="h-3.5 w-3.5" />
                 Lista
-              </Button>
-            </div>
-            <div className="flex space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => window.print()}
-                title="Imprimir agenda (Ctrl+P)"
-              >
-                <Printer className="h-4 w-4 mr-2" />
-                Imprimir
-              </Button>
-              <Button 
-                onClick={() => setShowForm(true)}
-                className="bg-primary hover:bg-primary/90"
-                title="Nova consulta (N)"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Consulta
-              </Button>
-            </div>
+              </ToggleGroupItem>
+            </ToggleGroup>
+
+            {/* Ações */}
+            <Button variant="outline"  className="h-6 px-3 text-sm" onClick={() => window.print()} title="Imprimir agenda (Ctrl+P)">
+              <Printer className="h-4 w-4 mr-1.5" />
+              Imprimir
+            </Button>
+            <Button className="h-8 px-3 text-sm bg-primary hover:bg-primary/90" onClick={() => setShowForm(true)} className="bg-primary hover:bg-primary/90" title="Nova consulta (N)">
+              <Plus className="h-4 w-4 mr-1.5" />
+              Nova Consulta
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Barra de Pesquisa Global */}
+      {/* Busca global */}
       {searchVisible && (
         <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
+          <CardContent className="card-content">
+            <div className="flex items-center gap-2">
               <Search className="h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Pesquisar pacientes, consultas..."
                 className="flex-1"
                 autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
-                    setSearchVisible(false);
-                  }
-                }}
+                onKeyDown={(e) => e.key === 'Escape' && setSearchVisible(false)}
               />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSearchVisible(false)}
-              >
+              <Button variant="outline" size="sm" onClick={() => setSearchVisible(false)} title="Fechar">
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -334,20 +308,18 @@ export function Appointments() {
         </Card>
       )}
 
-      {/* Formulário de Consulta */}
+      {/* Formulário */}
       {showForm && (
         <Card className="mb-6">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>
-                {editingAppointment ? 'Editar Consulta' : 'Nova Consulta'}
-              </CardTitle>
-              <Button variant="ghost" size="sm" onClick={handleCancel}>
+              <CardTitle>{editingAppointment ? 'Editar Consulta' : 'Nova Consulta'}</CardTitle>
+              <Button variant="ghost" size="sm" onClick={handleCancel} title="Cancelar (Esc)">
                 <X className="h-4 w-4" />
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="card-content">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -361,9 +333,7 @@ export function Appointments() {
                     </SelectTrigger>
                     <SelectContent>
                       {patients.map((patient) => (
-                        <SelectItem key={patient.id} value={patient.id}>
-                          {patient.name}
-                        </SelectItem>
+                        <SelectItem key={patient.id} value={patient.id}>{patient.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -380,9 +350,7 @@ export function Appointments() {
                     </SelectTrigger>
                     <SelectContent>
                       {clinics.map((clinic) => (
-                        <SelectItem key={clinic.id} value={clinic.id}>
-                          {clinic.name}
-                        </SelectItem>
+                        <SelectItem key={clinic.id} value={clinic.id}>{clinic.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -403,7 +371,7 @@ export function Appointments() {
                   <Label htmlFor="status">Status</Label>
                   <Select
                     value={formData.status}
-                    onValueChange={(value) => setFormData({ ...formData, status: value as 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' })}
+                    onValueChange={(value) => setFormData({ ...formData, status: value as CreateAppointmentRequest['status'] })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -451,10 +419,8 @@ export function Appointments() {
                 />
               </div>
 
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={handleCancel}>
-                  Cancelar
-                </Button>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={handleCancel}>Cancelar</Button>
                 <Button type="submit" className="bg-primary hover:bg-primary/90">
                   {editingAppointment ? 'Atualizar' : 'Criar'} Consulta
                 </Button>
@@ -464,6 +430,7 @@ export function Appointments() {
         </Card>
       )}
 
+      {/* Conteúdo principal */}
       {viewMode === 'calendar' ? (
         <CalendarView
           appointments={appointments}
@@ -471,16 +438,14 @@ export function Appointments() {
           onDateClick={handleDateClick}
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 xl:col-span-2 min-w-[320px]">
             <Card>
               <CardHeader>
                 <CardTitle>Consultas Agendadas</CardTitle>
-                <CardDescription>
-                  {appointments.length} consulta(s) agendada(s)
-                </CardDescription>
+                <CardDescription>{appointments.length} consulta(s) agendada(s)</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="card-content">
                 {loading ? (
                   <div className="text-center py-8">
                     <p className="text-gray-500">Carregando consultas...</p>
@@ -488,97 +453,66 @@ export function Appointments() {
                 ) : (
                   <div className="space-y-4">
                     {appointments.map((appointment) => (
-                      <div key={appointment.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                        <div className="flex items-center space-x-4">
-                          <div className="flex-shrink-0">
-                            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                              <Calendar className="h-6 w-6 text-primary" />
-                            </div>
-                          </div>
-                          <div className="flex-1">
-                            <div className="space-y-1">
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm font-medium text-gray-600">Paciente:</span>
-                                <span className="text-sm font-semibold text-gray-900">
-                                  {appointment.patient?.name || `ID: ${appointment.patient_id}`}
-                                </span>
-                                {appointment.patient && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      const patient: Patient = {
-                                        id: appointment.patient!.id,
-                                        name: appointment.patient!.name,
-                                        phone: appointment.patient!.phone,
-                                        email: '',
-                                        birth_date: '',
-                                        address: '',
-                                        notes: '',
-                                        created_at: '',
-                                        updated_at: '',
-                                        user_id: ''
-                                      };
-                                      handlePatientClick(patient);
-                                    }}
-                                    className="h-6 w-6 p-0"
-                                  >
-                                    <User className="h-3 w-3" />
-                                  </Button>
-                                )}
-                              </div>
-                              
-                              {appointment.clinic && (
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-sm font-medium text-gray-600">Clínica:</span>
-                                  <span className="text-sm text-gray-700">{appointment.clinic.name}</span>
-                                </div>
-                              )}
-                              
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm font-medium text-gray-600">Procedimento:</span>
-                                <span className="text-sm text-gray-700">{appointment.title}</span>
-                              </div>
-                              
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm font-medium text-gray-600">Horário:</span>
-                                <span className="text-sm text-gray-700">
-                                  {new Date(appointment.appointment_date).toLocaleDateString('pt-BR')} às {appointment.start_time}
-                                </span>
-                              </div>
-                              
-                              {appointment.notes && (
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-sm font-medium text-gray-600">Observações:</span>
-                                  <span className="text-sm text-gray-500">{appointment.notes}</span>
-                                </div>
+                      <div key={appointment.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                        <div className="flex justify-between items-start gap-4">
+                          {/* Infos */}
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-900 truncate">
+                                {appointment.patient?.name || `ID: ${appointment.patient_id}`}
+                              </span>
+                              {appointment.patient && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 shrink-0"
+                                  onClick={() => handlePatientClick({
+                                    id: appointment.patient!.id,
+                                    name: appointment.patient!.name,
+                                    phone: appointment.patient!.phone,
+                                    email: '',
+                                    birth_date: '',
+                                    address: '',
+                                    notes: '',
+                                    created_at: '',
+                                    updated_at: '',
+                                    user_id: ''
+                                  })}
+                                  title="Ver paciente"
+                                >
+                                  <User className="h-3 w-3" />
+                                </Button>
                               )}
                             </div>
+                            <p className="text-sm text-gray-700 break-words">{appointment.title}</p>
+                            {appointment.clinic && (
+                              <p className="text-xs text-gray-500 break-words">Clínica: {appointment.clinic.name}</p>
+                            )}
+                            <p className="text-xs text-gray-500">
+                              {new Date(appointment.appointment_date).toLocaleDateString('pt-BR')} às {appointment.start_time}
+                            </p>
+                            {appointment.notes && (
+                              <p className="text-xs italic text-gray-400 break-words">{appointment.notes}</p>
+                            )}
                           </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(appointment.status)}`}>
-                            {getStatusText(appointment.status)}
-                          </span>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleEdit(appointment)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleDelete(appointment.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+
+                          {/* Status + ações */}
+                          <div className="flex flex-col items-end gap-2 shrink-0">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
+                              {getStatusText(appointment.status)}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" onClick={() => handleEdit(appointment)} title="Editar">
+                                <Edit className="h-4 w-4 text-green-600" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleDelete(appointment.id)} title="Excluir">
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}
-                    
                     {appointments.length === 0 && (
                       <div className="text-center py-8">
                         <p className="text-gray-500">Nenhuma consulta agendada.</p>
@@ -590,15 +524,14 @@ export function Appointments() {
             </Card>
           </div>
 
-          <div>
+          {/* Resumo da semana */}
+          <div className="min-w-[320px]">
             <Card>
               <CardHeader>
                 <CardTitle>Resumo da Semana</CardTitle>
-                <CardDescription>
-                  Estatísticas das consultas
-                </CardDescription>
+                <CardDescription>Estatísticas das consultas</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="card-content">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Total de consultas</span>
@@ -629,7 +562,7 @@ export function Appointments() {
         </div>
       )}
 
-      {/* Modal de Detalhes do Paciente */}
+      {/* Modal de paciente */}
       {selectedPatient && (
         <PatientDetailsModal
           patient={selectedPatient}
